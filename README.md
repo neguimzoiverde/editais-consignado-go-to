@@ -9,9 +9,10 @@ Conta com uma **interface moderna e responsiva construída em Astro (SSR + Tailw
 ## 🎯 Objetivo e Abrangência
 
 - **Objetivo:** Localizar e monitorar diariamente avisos oficiais, editais e chamamentos públicos de Prefeituras, Fundos e Institutos de Previdência de GO e TO relacionados ao credenciamento ou à contratação de instituições financeiras e consignatárias.
-- **Fontes Oficiais:**
-  - **PNCP (Portal Nacional de Contratações Públicas):** Consulta automatizada via API oficial (`/v1/contratacoes/proposta` e `/v1/contratacoes/publicacao`).
-  - **Portais Oficiais e Diários Oficiais Municipais/Estaduais:** Priorização absoluta de documentos e páginas públicas verificadas.
+- **Fontes Oficiais Integradas:**
+  - **PNCP (Portal Nacional de Contratações Públicas):** Consulta automatizada via API oficial (`/v1/contratacoes/proposta` para prazos vigentes e `/v1/contratacoes/publicacao?codigoModalidadeContratacao=12` para Credenciamentos contínuos em Goiás e Tocantins).
+  - **Diário Oficial dos Municípios de Goiás (AGM / SIGPub):** Raspagem e extração automatizada de avisos de credenciamento e chamamentos públicos de consignado e cartões de benefício para os 246 municípios goianos.
+  - **Portais Eletrônicos Vinculados:** Cobertura de editais do Portal de Compras Públicas, Compras.gov.br e Licitanet sincronizados às bases oficiais.
 - **Fuso Horário Oficial:** `America/Sao_Paulo`.
 - **Deduplicação e Histórico:** Rastreamento persistente com detecção de novos processos, retificações, prorrogações e suspensões.
 

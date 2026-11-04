@@ -97,6 +97,14 @@ const lastSync = getLastSync();
           <button data-uf="TO" class="filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition">Tocantins (TO)</button>
         </div>
 
+        <!-- Filtro Portal de Origem -->
+        <div class="flex items-center gap-1.5" id="portal-filters">
+          <span class="text-xs text-zinc-400 font-medium mr-1">Portal / Fonte:</span>
+          <button data-portal="ALL" class="filter-portal-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-zinc-950 transition">Todos</button>
+          <button data-portal="PNCP" class="filter-portal-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition">PNCP</button>
+          <button data-portal="AGM" class="filter-portal-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition">Diário Oficial AGM</button>
+        </div>
+
         <!-- Filtro Situação -->
         <div class="flex items-center gap-1.5" id="situacao-filters">
           <span class="text-xs text-zinc-400 font-medium mr-1">Situação:</span>
@@ -175,6 +183,7 @@ const lastSync = getLastSync();
     }
 
     let activeUf = 'ALL';
+    let activePortal = 'ALL';
     let activeSituacao = 'ALL';
     let searchQuery = '';
 
@@ -199,6 +208,10 @@ const lastSync = getLastSync();
 
       const filtered = allEditais.filter(item => {
         if (activeUf !== 'ALL' && item.uf !== activeUf) return false;
+        if (activePortal !== 'ALL') {
+          if (activePortal === 'PNCP' && !item.origem?.includes('PNCP')) return false;
+          if (activePortal === 'AGM' && !item.origem?.includes('AGM')) return false;
+        }
         if (activeSituacao !== 'ALL' && item.situacao !== activeSituacao) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -219,6 +232,7 @@ const lastSync = getLastSync();
       emptyState.classList.add('hidden');
       tbody.innerHTML = filtered.map((item, idx) => {
         const ufColor = item.uf === 'GO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-teal-500/10 text-teal-400 border-teal-500/20';
+        const isAgm = item.origem?.includes('AGM');
         return `
           <tr class="hover:bg-zinc-800/40 transition group">
             <td class="py-3 px-4 font-medium text-white">
@@ -234,6 +248,9 @@ const lastSync = getLastSync();
             </td>
             <td class="py-3 px-4 font-mono text-zinc-300">
               <span class="truncate block max-w-[140px] text-[11px]">${item.numero_edital || 'não informado'}</span>
+              <span class="inline-flex items-center text-[10px] ${isAgm ? 'text-amber-400/90' : 'text-emerald-400/90'} font-sans mt-0.5">
+                ${isAgm ? 'Diário Oficial AGM' : 'PNCP'}
+              </span>
             </td>
             <td class="py-3 px-4 text-zinc-400">
               <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
@@ -321,6 +338,18 @@ const lastSync = getLastSync();
         });
         btn.className = 'filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-zinc-950 transition';
         activeUf = btn.getAttribute('data-uf');
+        renderTable();
+      });
+    });
+
+    // Filtros de Portal
+    document.querySelectorAll('.filter-portal-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-portal-btn').forEach(b => {
+          b.className = 'filter-portal-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition';
+        });
+        btn.className = 'filter-portal-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-zinc-950 transition';
+        activePortal = btn.getAttribute('data-portal');
         renderTable();
       });
     });

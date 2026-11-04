@@ -30,7 +30,8 @@ export function generateDailyMarkdownReport(): string {
       const objeto = (item.objeto || '').replace(/[\r\n]+/g, ' ').replace(/\|/g, '-');
       const pub = item.data_publicacao || 'não informado na fonte consultada';
       const prazoSituacao = `${item.data_encerramento} (${item.situacao})`;
-      const link = item.link_fonte ? `[PNCP / Oficial](${item.link_fonte})` : 'não informado';
+      const fonteLabel = item.origem?.includes('AGM') ? 'Diário Oficial (AGM)' : 'PNCP / Oficial';
+      const link = item.link_fonte ? `[${fonteLabel}](${item.link_fonte})` : 'não informado';
 
       lines.push(`| ${muniUf} | ${orgao} | ${edital} | ${objeto} | ${pub} | ${prazoSituacao} | ${link} |`);
 
@@ -70,7 +71,7 @@ export function generateDailyMarkdownReport(): string {
   if (observacoes.length > 0) {
     lines.push(observacoes.slice(0, 5).join('\n'));
   } else {
-    lines.push('Todos os editais possuem links oficiais de acesso validados no PNCP.');
+    lines.push('Todos os editais possuem links oficiais de acesso validados no PNCP e Diários Oficiais dos Municípios.');
   }
 
   return lines.join('\n');

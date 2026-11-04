@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
-import { runPncpSync } from '../../lib/collector/pncp.js';
+import { runAllCollectors } from '../../lib/collector/scheduler.js';
 import { getStats, getLastSync } from '../../lib/db/database.js';
 
 export const POST: APIRoute = async () => {
   try {
-    const result = await runPncpSync();
+    const result = await runAllCollectors();
     const stats = getStats();
     const lastSync = getLastSync();
 
