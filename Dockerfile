@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
-FROM node:22-bookworm-slim AS build
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS build
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 
 WORKDIR /app
 
-# Copia dependências primeiro para cache de camada eficiente
-COPY package.json ./
+COPY package.json package-lock.json* ./
 RUN npm install
 
-# Copia código fonte e compila Astro
 COPY astro.config.mjs tsconfig.json tailwind.config.mjs ./
 COPY src/ ./src/
 COPY public/ ./public/
@@ -16,6 +16,7 @@ RUN npm run build \
   && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
+ARG TARGETPLATFORM
 
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -24,7 +25,6 @@ ENV NODE_ENV=production \
     TZ=America/Sao_Paulo \
     DATA_DIR=/app/data
 
-# Instala certificados CA e fuso horário
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
@@ -32,7 +32,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && dpkg-reconfigure --frontend noninteractive tzdata \
   && rm -rf /var/lib/apt/lists/*
 
-# Cria diretório de dados para persistência isolada
 RUN mkdir -p /app/data
 
 COPY package.json ./
