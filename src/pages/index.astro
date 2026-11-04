@@ -122,14 +122,44 @@ const lastSync = getLastSync();
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
-            <tr class="bg-zinc-950/80 border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
-              <th class="py-3.5 px-4 w-44">Município/UF</th>
-              <th class="py-3.5 px-4 w-52">Órgão</th>
-              <th class="py-3.5 px-4 w-36">Edital / Processo</th>
-              <th class="py-3.5 px-4">Objeto Identificado</th>
-              <th class="py-3.5 px-4 w-28 text-center">Publicação</th>
-              <th class="py-3.5 px-4 w-36 text-center">Prazo / Situação</th>
-              <th class="py-3.5 px-4 w-28 text-right">Ações</th>
+            <tr class="bg-zinc-950/80 border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider text-[11px]">
+              <th class="py-3.5 px-4 w-44 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="municipio" title="Clique para ordenar por Município/UF">
+                <div class="flex items-center gap-1.5">
+                  <span>Município/UF</span>
+                  <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="municipio"></span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 w-52 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="orgao" title="Clique para ordenar por Órgão">
+                <div class="flex items-center gap-1.5">
+                  <span>Órgão</span>
+                  <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="orgao"></span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 w-44 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="numero_edital" title="Clique para ordenar por Edital / Processo">
+                <div class="flex items-center gap-1.5">
+                  <span>Edital / Processo</span>
+                  <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="numero_edital"></span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="objeto" title="Clique para ordenar por Objeto">
+                <div class="flex items-center gap-1.5">
+                  <span>Objeto Identificado</span>
+                  <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="objeto"></span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 w-32 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="data_publicacao" title="Clique para ordenar por Data de Publicação">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span>Publicação</span>
+                  <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="data_publicacao"></span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 w-36 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="situacao" title="Clique para ordenar por Situação / Prazo">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span>Prazo / Situação</span>
+                  <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="situacao"></span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 w-24 text-right">Ações</th>
             </tr>
           </thead>
           <tbody id="table-body" class="divide-y divide-zinc-800/60 text-zinc-300">
@@ -186,6 +216,44 @@ const lastSync = getLastSync();
     let activePortal = 'ALL';
     let activeSituacao = 'ALL';
     let searchQuery = '';
+    let currentSortColumn = 'data_publicacao';
+    let currentSortDirection = 'desc';
+
+    function parseDateValue(str) {
+      if (!str) return 0;
+      const s = String(str).trim();
+      const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (brMatch) {
+        const day = parseInt(brMatch[1], 10);
+        const month = parseInt(brMatch[2], 10) - 1;
+        const year = parseInt(brMatch[3], 10);
+        return new Date(year, month, day).getTime();
+      }
+      const t = Date.parse(s);
+      return isNaN(t) ? 0 : t;
+    }
+
+    function updateSortIcons() {
+      const neutralSvg = '<svg class="w-3.5 h-3.5 text-zinc-600 group-hover/th:text-zinc-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10l5-5 5 5M7 14l5 5 5-5" /></svg>';
+      const ascSvg = '<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7" /></svg>';
+      const descSvg = '<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>';
+
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        const col = th.getAttribute('data-sort');
+        const iconContainer = th.querySelector('[data-sort-icon]');
+        if (!iconContainer) return;
+
+        if (col === currentSortColumn) {
+          iconContainer.innerHTML = currentSortDirection === 'asc' ? ascSvg : descSvg;
+          th.classList.add('text-emerald-400');
+          th.classList.remove('text-zinc-400');
+        } else {
+          iconContainer.innerHTML = neutralSvg;
+          th.classList.remove('text-emerald-400');
+          th.classList.add('text-zinc-400');
+        }
+      });
+    }
 
     function getSituacaoBadge(situacao) {
       const s = (situacao || '').toLowerCase();
@@ -228,6 +296,32 @@ const lastSync = getLastSync();
         emptyState.classList.remove('hidden');
         return;
       }
+
+      // Ordenação dinâmica
+      filtered.sort((a, b) => {
+        let res = 0;
+        if (currentSortColumn === 'municipio') {
+          res = (a.municipio || '').localeCompare(b.municipio || '', 'pt-BR', { sensitivity: 'base' });
+          if (res === 0) res = (a.uf || '').localeCompare(b.uf || '', 'pt-BR');
+        } else if (currentSortColumn === 'orgao') {
+          res = (a.orgao || '').localeCompare(b.orgao || '', 'pt-BR', { sensitivity: 'base' });
+        } else if (currentSortColumn === 'numero_edital') {
+          res = (a.numero_edital || '').localeCompare(b.numero_edital || '', 'pt-BR', { numeric: true, sensitivity: 'base' });
+        } else if (currentSortColumn === 'objeto') {
+          res = (a.objeto || '').localeCompare(b.objeto || '', 'pt-BR', { sensitivity: 'base' });
+        } else if (currentSortColumn === 'data_publicacao') {
+          res = parseDateValue(a.data_publicacao) - parseDateValue(b.data_publicacao);
+        } else if (currentSortColumn === 'situacao') {
+          const sitWeights = { 'aberto': 1, 'retificado': 2, 'suspenso': 3, 'encerrado': 4 };
+          const wA = sitWeights[a.situacao?.toLowerCase()] || 99;
+          const wB = sitWeights[b.situacao?.toLowerCase()] || 99;
+          res = wA - wB;
+          if (res === 0) {
+            res = parseDateValue(b.data_publicacao) - parseDateValue(a.data_publicacao);
+          }
+        }
+        return currentSortDirection === 'desc' ? -res : res;
+      });
 
       emptyState.classList.add('hidden');
       tbody.innerHTML = filtered.map((item, idx) => {
@@ -458,7 +552,23 @@ const lastSync = getLastSync();
       }
     });
 
-    // Render inicial
+    // Listeners de ordenação das colunas
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-sort');
+        if (currentSortColumn === col) {
+          currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          currentSortColumn = col;
+          currentSortDirection = (col === 'data_publicacao' || col === 'situacao') ? 'desc' : 'asc';
+        }
+        updateSortIcons();
+        renderTable();
+      });
+    });
+
+    // Render inicial e ícones
+    updateSortIcons();
     renderTable();
   </script>
 </Layout>
