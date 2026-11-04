@@ -1,0 +1,10 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "module": "ESNext",
+    "allowJs": true,
+    "strictNullChecks": true
+  }
+}

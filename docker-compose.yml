@@ -1,0 +1,22 @@
+services:
+  editais-consignado:
+    image: neguimzoiverde/editais-consignado-go-to:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: editais-consignado
+    restart: unless-stopped
+    ports:
+      - "4340:4340"
+    environment:
+      - PORT=4340
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - TZ=America/Sao_Paulo
+      - DATA_DIR=/app/data
+    volumes:
+      - editais_data:/app/data
+
+volumes:
+  editais_data:
+    name: editais_consignado_data

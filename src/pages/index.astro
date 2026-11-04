@@ -1,0 +1,419 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import MetricCards from '../components/MetricCards.astro';
+import DetailModal from '../components/DetailModal.astro';
+import ReportModal from '../components/ReportModal.astro';
+import { listEditais, getStats, getLastSync } from '../lib/db/database.js';
+import { initScheduler } from '../lib/collector/scheduler.js';
+
+// Inicializa agendador de segundo plano
+initScheduler();
+
+const initialEditais = listEditais();
+const stats = getStats();
+const lastSync = getLastSync();
+---
+
+<Layout title="Monitor de Editais de Consignado — Goiás e Tocantins">
+  <Header lastSyncTime={lastSync?.timestamp} />
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+    <!-- Top KPI Cards -->
+    <MetricCards stats={stats} />
+
+    <!-- Barra de Filtros e Ações -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 mb-6 backdrop-blur-sm shadow-sm space-y-4">
+      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <!-- Campo de busca -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Buscar por município, órgão, edital ou palavra do objeto..."
+            class="w-full pl-10 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition"
+          />
+        </div>
+
+        <!-- Export Dropdown -->
+        <div class="relative inline-block text-left" id="export-dropdown-wrapper">
+          <button
+            id="export-btn"
+            type="button"
+            class="inline-flex items-center justify-center gap-2 w-full md:w-auto px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold rounded-xl border border-zinc-700 transition shadow-sm"
+          >
+            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Exportar Resultados</span>
+            <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div
+            id="export-menu"
+            class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-zinc-900 border border-zinc-800 shadow-xl py-1 z-30"
+          >
+            <a
+              href="/api/export?format=markdown"
+              download
+              class="flex items-center gap-2 px-4 py-2.5 text-xs text-zinc-200 hover:bg-zinc-800/80 hover:text-emerald-400 transition"
+            >
+              <span class="font-mono text-emerald-500 font-bold">.md</span>
+              <span>Relatório Oficial (Markdown)</span>
+            </a>
+            <a
+              href="/api/export?format=csv"
+              download
+              class="flex items-center gap-2 px-4 py-2.5 text-xs text-zinc-200 hover:bg-zinc-800/80 hover:text-emerald-400 transition border-t border-zinc-800/50"
+            >
+              <span class="font-mono text-emerald-500 font-bold">.csv</span>
+              <span>Planilha Formatada (Excel)</span>
+            </a>
+            <a
+              href="/api/export?format=json"
+              download
+              class="flex items-center gap-2 px-4 py-2.5 text-xs text-zinc-200 hover:bg-zinc-800/80 hover:text-emerald-400 transition border-t border-zinc-800/50"
+            >
+              <span class="font-mono text-emerald-500 font-bold">.json</span>
+              <span>Exportar Estrutura (JSON)</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros de Pílula: UF e Situação -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800/50">
+        <!-- Filtro UF -->
+        <div class="flex items-center gap-1.5" id="uf-filters">
+          <span class="text-xs text-zinc-400 font-medium mr-1">Estado:</span>
+          <button data-uf="ALL" class="filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-zinc-950 transition">Todos</button>
+          <button data-uf="GO" class="filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition">Goiás (GO)</button>
+          <button data-uf="TO" class="filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition">Tocantins (TO)</button>
+        </div>
+
+        <!-- Filtro Situação -->
+        <div class="flex items-center gap-1.5" id="situacao-filters">
+          <span class="text-xs text-zinc-400 font-medium mr-1">Situação:</span>
+          <button data-situacao="ALL" class="filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-100 transition">Todas</button>
+          <button data-situacao="aberto" class="filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-emerald-400 hover:bg-emerald-500/10 border border-zinc-800 transition">Aberto</button>
+          <button data-situacao="retificado" class="filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-amber-400 hover:bg-amber-500/10 border border-zinc-800 transition">Retificado</button>
+          <button data-situacao="suspenso" class="filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-purple-400 hover:bg-purple-500/10 border border-zinc-800 transition">Suspenso</button>
+          <button data-situacao="encerrado" class="filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition">Encerrado</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela de Resultados -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-zinc-950/80 border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
+              <th class="py-3.5 px-4 w-44">Município/UF</th>
+              <th class="py-3.5 px-4 w-52">Órgão</th>
+              <th class="py-3.5 px-4 w-36">Edital / Processo</th>
+              <th class="py-3.5 px-4">Objeto Identificado</th>
+              <th class="py-3.5 px-4 w-28 text-center">Publicação</th>
+              <th class="py-3.5 px-4 w-36 text-center">Prazo / Situação</th>
+              <th class="py-3.5 px-4 w-28 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="divide-y divide-zinc-800/60 text-zinc-300">
+            <!-- As linhas são renderizadas no cliente a partir do JSON embutido -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="hidden py-16 px-4 text-center">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-zinc-400 mb-3">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h4 class="text-sm font-bold text-zinc-200 mb-1">Nenhum edital localizado</h4>
+        <p class="text-xs text-zinc-500 max-w-sm mx-auto mb-4">
+          Tente ajustar os termos de busca ou clique abaixo para rodar uma nova varredura oficial nos portais.
+        </p>
+        <button
+          onclick="document.getElementById('btn-sync-now').click()"
+          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition"
+        >
+          Disparar Varredura Agora
+        </button>
+      </div>
+
+      <!-- Footer da Tabela com contador -->
+      <div class="px-4 py-3 bg-zinc-950/60 border-t border-zinc-800 text-xs text-zinc-400 flex items-center justify-between">
+        <div id="results-count">Exibindo 0 resultados</div>
+        <div class="text-[11px] text-zinc-500">Dados consolidados do PNCP e Fontes Oficiais de GO & TO</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modais -->
+  <DetailModal />
+  <ReportModal />
+
+  <!-- Dados Iniciais embutidos para Renderização Instantânea -->
+  <script id="initial-data" type="application/json" set:html={JSON.stringify(initialEditais)} />
+
+  <!-- Lógica Reativa do Cliente -->
+  <script is:inline>
+    let allEditais = [];
+    try {
+      const el = document.getElementById('initial-data');
+      if (el) allEditais = JSON.parse(el.textContent || '[]');
+    } catch (e) {
+      console.error('Erro ao ler dados iniciais:', e);
+    }
+
+    let activeUf = 'ALL';
+    let activeSituacao = 'ALL';
+    let searchQuery = '';
+
+    function getSituacaoBadge(situacao) {
+      const s = (situacao || '').toLowerCase();
+      if (s === 'aberto') {
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Aberto</span>';
+      } else if (s === 'retificado') {
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Retificado</span>';
+      } else if (s === 'suspenso') {
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">Suspenso</span>';
+      } else if (s === 'encerrado') {
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Encerrado</span>';
+      }
+      return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400">Não informado</span>';
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      const emptyState = document.getElementById('empty-state');
+      const countEl = document.getElementById('results-count');
+
+      const filtered = allEditais.filter(item => {
+        if (activeUf !== 'ALL' && item.uf !== activeUf) return false;
+        if (activeSituacao !== 'ALL' && item.situacao !== activeSituacao) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const target = `${item.municipio} ${item.orgao} ${item.objeto} ${item.numero_edital}`.toLowerCase();
+          if (!target.includes(q)) return false;
+        }
+        return true;
+      });
+
+      countEl.textContent = `Exibindo ${filtered.length} de ${allEditais.length} processos`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      tbody.innerHTML = filtered.map((item, idx) => {
+        const ufColor = item.uf === 'GO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-teal-500/10 text-teal-400 border-teal-500/20';
+        return `
+          <tr class="hover:bg-zinc-800/40 transition group">
+            <td class="py-3 px-4 font-medium text-white">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${ufColor}">
+                  ${item.uf}
+                </span>
+                <span class="truncate" title="${item.municipio}">${item.municipio}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-zinc-300">
+              <span class="truncate block max-w-[200px]" title="${item.orgao}">${item.orgao}</span>
+            </td>
+            <td class="py-3 px-4 font-mono text-zinc-300">
+              <span class="truncate block max-w-[140px] text-[11px]">${item.numero_edital || 'não informado'}</span>
+            </td>
+            <td class="py-3 px-4 text-zinc-400">
+              <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
+                ${item.objeto}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-center text-zinc-400 font-mono text-[11px]">
+              ${item.data_publicacao}
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex flex-col items-center gap-1">
+                ${getSituacaoBadge(item.situacao)}
+                <span class="text-[10px] text-zinc-500 font-mono">${item.data_encerramento}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <div class="flex items-center justify-end gap-1.5">
+                <button
+                  onclick="openDetail('${item.id}')"
+                  class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition"
+                  title="Ver detalhes"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+                <a
+                  href="${item.link_fonte}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition"
+                  title="Acessar Fonte Oficial / PNCP"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Modal de Detalhes
+    window.openDetail = function(id) {
+      const item = allEditais.find(e => e.id === id);
+      if (!item) return;
+
+      document.getElementById('modal-uf-badge').textContent = item.uf;
+      document.getElementById('modal-title').textContent = `${item.municipio} - ${item.numero_edital}`;
+      document.getElementById('modal-orgao').textContent = `${item.orgao} (${item.municipio} - ${item.uf})`;
+      document.getElementById('modal-numero').textContent = item.numero_edital || 'não informado';
+      document.getElementById('modal-situacao').innerHTML = `${getSituacaoBadge(item.situacao)} <span class="text-xs text-zinc-400">${item.data_encerramento}</span>`;
+      document.getElementById('modal-publicacao').textContent = item.data_publicacao;
+      document.getElementById('modal-encerramento').textContent = item.data_encerramento;
+      document.getElementById('modal-objeto').textContent = item.objeto;
+      document.getElementById('modal-origem').textContent = item.origem || 'PNCP (Portal Nacional de Contratações Públicas)';
+      document.getElementById('modal-link-oficial').href = item.link_fonte;
+
+      document.getElementById('detail-modal').classList.remove('hidden');
+    };
+
+    document.getElementById('modal-close').addEventListener('click', () => {
+      document.getElementById('detail-modal').classList.add('hidden');
+    });
+
+    // Dropdown de Exportação
+    const exportBtn = document.getElementById('export-btn');
+    const exportMenu = document.getElementById('export-menu');
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportMenu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => {
+      exportMenu.classList.add('hidden');
+    });
+
+    // Filtros de UF
+    document.querySelectorAll('.filter-uf-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-uf-btn').forEach(b => {
+          b.className = 'filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition';
+        });
+        btn.className = 'filter-uf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-zinc-950 transition';
+        activeUf = btn.getAttribute('data-uf');
+        renderTable();
+      });
+    });
+
+    // Filtros de Situação
+    document.querySelectorAll('.filter-sit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-sit-btn').forEach(b => {
+          b.className = 'filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition';
+        });
+        btn.className = 'filter-sit-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-100 transition';
+        activeSituacao = btn.getAttribute('data-situacao');
+        renderTable();
+      });
+    });
+
+    // Campo de busca
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderTable();
+    });
+
+    // Botão Ver Relatório Markdown
+    document.getElementById('btn-open-report').addEventListener('click', async () => {
+      const modal = document.getElementById('report-modal');
+      const contentEl = document.getElementById('report-content');
+      modal.classList.remove('hidden');
+      contentEl.textContent = 'Gerando relatório oficial no formato especificado...';
+
+      try {
+        const res = await fetch('/api/export?format=markdown');
+        const text = await res.text();
+        contentEl.textContent = text;
+      } catch (err) {
+        contentEl.textContent = 'Erro ao carregar relatório: ' + err.message;
+      }
+    });
+
+    document.getElementById('report-modal-close').addEventListener('click', () => {
+      document.getElementById('report-modal').classList.add('hidden');
+    });
+
+    // Botão Copiar Markdown
+    document.getElementById('btn-copy-md').addEventListener('click', async () => {
+      const content = document.getElementById('report-content').textContent;
+      await navigator.clipboard.writeText(content);
+      const copyText = document.getElementById('copy-text');
+      const old = copyText.textContent;
+      copyText.textContent = 'Copiado!';
+      setTimeout(() => copyText.textContent = old, 2000);
+    });
+
+    // Botão Sincronizar Agora
+    document.getElementById('btn-sync-now').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-sync-now');
+      const text = document.getElementById('sync-text');
+      const spinner = document.getElementById('sync-spinner');
+
+      btn.disabled = true;
+      text.textContent = 'Varrendo PNCP...';
+      spinner.classList.add('animate-spin');
+
+      try {
+        const res = await fetch('/api/sync', { method: 'POST' });
+        const json = await res.json();
+        if (json.success) {
+          // Atualiza dados locais
+          const resEditais = await fetch('/api/editais');
+          allEditais = await resEditais.json();
+          renderTable();
+
+          // Atualiza stats
+          if (json.stats) {
+            document.getElementById('stat-total').textContent = json.stats.total;
+            document.getElementById('stat-abertos-go').textContent = json.stats.abertosGO;
+            document.getElementById('stat-abertos-to').textContent = json.stats.abertosTO;
+            document.getElementById('stat-novos').textContent = json.stats.novosHoje;
+            document.getElementById('stat-retificados').textContent = json.stats.retificados;
+          }
+          alert(`Varredura concluída!\n${json.data.totalFound} processos identificados (${json.data.newItems} novos).`);
+        } else {
+          alert('Erro na varredura: ' + (json.error || 'Erro desconhecido'));
+        }
+      } catch (err) {
+        alert('Erro ao conectar com o serviço: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        text.textContent = 'Varredura Agora';
+        spinner.classList.remove('animate-spin');
+      }
+    });
+
+    // Render inicial
+    renderTable();
+  </script>
+</Layout>

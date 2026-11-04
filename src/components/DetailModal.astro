@@ -1,0 +1,83 @@
+<div
+  id="detail-modal"
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden"
+  role="dialog"
+  aria-modal="true"
+>
+  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+    <!-- Header Modal -->
+    <div class="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span id="modal-uf-badge" class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          GO
+        </span>
+        <h3 id="modal-title" class="text-base font-bold text-white">Detalhes do Edital</h3>
+      </div>
+      <button
+        id="modal-close"
+        class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Body Modal -->
+    <div class="p-6 overflow-y-auto space-y-4 text-sm">
+      <div>
+        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Município e Órgão</label>
+        <div id="modal-orgao" class="text-zinc-100 font-medium bg-zinc-950 p-3 rounded-xl border border-zinc-800/80"></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Número do Edital / Chamamento</label>
+          <div id="modal-numero" class="text-zinc-200 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/80 font-mono text-xs"></div>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Situação / Prazo</label>
+          <div id="modal-situacao" class="bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/80 flex items-center gap-2"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Data de Publicação</label>
+          <div id="modal-publicacao" class="text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/80 text-xs"></div>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Data Encerramento / Proposta</label>
+          <div id="modal-encerramento" class="text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/80 text-xs font-semibold"></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Objeto Completo Identificado</label>
+        <div id="modal-objeto" class="text-zinc-300 bg-zinc-950 p-3.5 rounded-xl border border-zinc-800/80 leading-relaxed text-xs"></div>
+      </div>
+
+      <div>
+        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Origem dos Dados</label>
+        <div id="modal-origem" class="text-zinc-400 text-xs"></div>
+      </div>
+    </div>
+
+    <!-- Footer Modal -->
+    <div class="px-6 py-3.5 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+      <span class="text-xs text-zinc-500">Dados auditados no PNCP</span>
+      <a
+        id="modal-link-oficial"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-lg shadow-emerald-500/20"
+      >
+        <span>Abrir Página Oficial do Edital</span>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</div>
