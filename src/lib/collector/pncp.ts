@@ -123,7 +123,6 @@ export function isConsignadoRelevant(objeto: string): boolean {
     (text.includes('desconto em folha') || (text.includes('folha') && text.includes('servidor')))
   );
 
-  // O edital DEVE ter pelo menos um dos 3 pilares
   const isTargetTheme = hasConsignadoTerm || hasCartaoConsignadoOuBeneficio || hasEmprestimoEmFolha;
   if (!isTargetTheme) {
     return false;
@@ -213,16 +212,16 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
 
   for (const uf of APP_CONFIG.states) {
     // 1. Consulta propostas abertas com data de encerramento
-    try {
-      for (let page = 1; page <= 15; page++) {
+    for (let page = 1; page <= 15; page++) {
+      try {
         const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=${dataFinalQuery}&uf=${uf}&pagina=${page}&tamanhoPagina=50`;
         const res = await fetch(url, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConsignadoCollector/1.0' },
         });
 
-        if (!res.ok) break;
+        if (!res.ok) continue;
         const bodyText = await res.text();
-        if (!bodyText || !bodyText.trim().startsWith('{')) break;
+        if (!bodyText || !bodyText.trim().startsWith('{')) continue;
 
         const data = JSON.parse(bodyText);
         if (!data.data || !Array.isArray(data.data) || data.data.length === 0) break;
@@ -263,24 +262,25 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
         }
 
         if (data.data.length < 50) break;
+        await new Promise(r => setTimeout(r, 150));
+      } catch (err) {
+        console.error(`[PNCP Proposta] Erro para UF ${uf} página ${page}:`, err);
       }
-    } catch (err) {
-      console.error(`[PNCP Proposta] Erro para UF ${uf}:`, err);
     }
 
     // 2. Consulta publicações na Modalidade 12 (Credenciamento Contínuo / Chamamento Público)
     for (const w of publicationWindows) {
-      try {
-        const maxPages = uf === 'GO' ? 20 : 10;
-        for (let page = 1; page <= maxPages; page++) {
+      const maxPages = uf === 'GO' ? 20 : 10;
+      for (let page = 1; page <= maxPages; page++) {
+        try {
           const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?codigoModalidadeContratacao=12&uf=${uf}&dataInicial=${w.start}&dataFinal=${w.end}&pagina=${page}&tamanhoPagina=50`;
           const res = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConsignadoCollector/1.0' },
           });
 
-          if (!res.ok) break;
+          if (!res.ok) continue;
           const bodyText = await res.text();
-          if (!bodyText || !bodyText.trim().startsWith('{')) break;
+          if (!bodyText || !bodyText.trim().startsWith('{')) continue;
 
           const data = JSON.parse(bodyText);
           if (!data.data || !Array.isArray(data.data) || data.data.length === 0) break;
@@ -323,9 +323,10 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
           }
 
           if (data.data.length < 50) break;
+          await new Promise(r => setTimeout(r, 150));
+        } catch (err) {
+          console.error(`[PNCP Publicacao Mod12] Erro para UF ${uf} janela ${w.start}-${w.end} página ${page}:`, err);
         }
-      } catch (err) {
-        console.error(`[PNCP Publicacao Mod12] Erro para UF ${uf} janela ${w.start}-${w.end}:`, err);
       }
     }
   }

@@ -232,7 +232,12 @@ const lastSync = getLastSync();
       emptyState.classList.add('hidden');
       tbody.innerHTML = filtered.map((item, idx) => {
         const ufColor = item.uf === 'GO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-teal-500/10 text-teal-400 border-teal-500/20';
-        const isAgm = item.origem?.includes('AGM');
+        const isDual = item.origem?.includes('+');
+        const isAgmOnly = !isDual && item.origem?.includes('AGM');
+        const originBadge = isDual
+          ? '<span class="inline-flex items-center gap-1 text-[10px] font-sans mt-0.5"><span class="text-emerald-400 font-bold">PNCP</span><span class="text-zinc-500 font-bold">+</span><span class="text-amber-400 font-bold">Diário AGM</span></span>'
+          : `<span class="inline-flex items-center text-[10px] ${isAgmOnly ? 'text-amber-400/90' : 'text-emerald-400/90'} font-sans mt-0.5 font-medium">${isAgmOnly ? 'Diário Oficial AGM' : 'PNCP'}</span>`;
+
         return `
           <tr class="hover:bg-zinc-800/40 transition group">
             <td class="py-3 px-4 font-medium text-white">
@@ -248,9 +253,7 @@ const lastSync = getLastSync();
             </td>
             <td class="py-3 px-4 font-mono text-zinc-300">
               <span class="truncate block max-w-[140px] text-[11px]">${item.numero_edital || 'não informado'}</span>
-              <span class="inline-flex items-center text-[10px] ${isAgm ? 'text-amber-400/90' : 'text-emerald-400/90'} font-sans mt-0.5">
-                ${isAgm ? 'Diário Oficial AGM' : 'PNCP'}
-              </span>
+              ${originBadge}
             </td>
             <td class="py-3 px-4 text-zinc-400">
               <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
@@ -283,7 +286,7 @@ const lastSync = getLastSync();
                   target="_blank"
                   rel="noopener noreferrer"
                   class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition"
-                  title="Acessar Fonte Oficial / PNCP"
+                  title="Acessar Fonte Oficial"
                 >
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -311,6 +314,19 @@ const lastSync = getLastSync();
       document.getElementById('modal-objeto').textContent = item.objeto;
       document.getElementById('modal-origem').textContent = item.origem || 'PNCP (Portal Nacional de Contratações Públicas)';
       document.getElementById('modal-link-oficial').href = item.link_fonte;
+
+      const secBtn = document.getElementById('modal-link-secundario');
+      const ofcText = document.getElementById('modal-link-oficial-text');
+      if (item.link_edital && item.link_edital !== item.link_fonte) {
+        if (secBtn) {
+          secBtn.href = item.link_edital;
+          secBtn.classList.remove('hidden');
+        }
+        if (ofcText) ofcText.textContent = 'Abrir no PNCP';
+      } else {
+        if (secBtn) secBtn.classList.add('hidden');
+        if (ofcText) ofcText.textContent = item.origem?.includes('AGM') ? 'Abrir no Diário Oficial (AGM)' : 'Abrir no PNCP';
+      }
 
       document.getElementById('detail-modal').classList.remove('hidden');
     };

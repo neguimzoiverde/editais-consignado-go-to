@@ -140,10 +140,12 @@ export async function runAgmSync(): Promise<{ totalFound: number; newItems: numb
         const id = `agm_${card.codigo}`;
         const municipio = cleanCityName(card.entidade);
 
+        // Extrai número do edital mais limpo e informativo
         let numeroEdital = card.titulo;
-        const editalMatch = card.titulo.match(/(?:EDITAL|CHAMAMENTO|CREDENCIAMENTO|CHAMADA PÚBLICA)\s*(?:N[º°\.]*\s*)?([0-9A-Z\/\.\-]+)/i);
-        if (editalMatch) {
-          numeroEdital = editalMatch[0].trim();
+        const numberMatch = combinedText.match(/(?:CREDENCIAMENTO|CHAMAMENTO|CHAMADA PÚBLICA|CHAMADA PUBLICA|EDITAL)\s*(?:N[º°\.]*\s*)?([0-9]{1,4}\/[0-9]{4})/i) ||
+                            combinedText.match(/n[º°\.]*\s*([0-9]{1,4}\/[0-9]{4})/i);
+        if (numberMatch) {
+          numeroEdital = numberMatch[0].trim();
         }
 
         const result = upsertEdital({
