@@ -140,3 +140,17 @@ docker pull neguimzoiverde/editais-consignado-go-to:latest
 
 ## 🛡️ Licença
 Distribuído sob licença proprietária para uso no ecossistema Sirius / Homelab.
+
+---
+
+## 🚢 Deploy no Portainer (srv01 / Docker Swarm)
+
+Para subir no Portainer do `srv01` integrado ao **Traefik** e ao **Cloudflare Tunnel Automático** (`tunnel-sync`):
+
+1. Acesse o **Portainer** do `srv01`.
+2. Vá em **Stacks** -> **Add stack**.
+3. **Name:** `buscaeditais`
+4. Selecione **Web editor** e cole o conteúdo de [`stacks/buscaeditais.yml`](stacks/buscaeditais.yml).
+5. Clique em **Deploy the stack**.
+
+O `tunnel-sync` criará automaticamente o CNAME `buscaeditais.siriusalpha.com.br` no Cloudflare e o Traefik cuidará do roteamento e dos certificados SSL!
