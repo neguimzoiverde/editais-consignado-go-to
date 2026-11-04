@@ -1,0 +1,100 @@
+# =============================================================================
+# buscaeditais.yml — srv01 (Swarm + Traefik + Cloudflare Tunnel)
+#
+# Público:    https://buscaeditais.siriusalpha.com.br
+# Tailscale:  https://buscaeditais  (MagicDNS → IP Tailscale do srv01)
+# Imagem:     neguimzoiverde/editais-consignado-go-to:latest
+#
+# Integrações:
+#   - Rede: internal_network (Traefik + tunnel-sync + cloudflared)
+#   - Volume: editais_consignado_data (SQLite autônomo /app/data/editais.db)
+#   - Cloudflare Tunnel: tunnel-sync cria o CNAME buscaeditais.siriusalpha.com.br automaticamente
+#
+# Deploy via Portainer:
+#   Stack Name: buscaeditais
+#   Web editor: colar o conteúdo deste arquivo
+# =============================================================================
+
+version: "3.8"
+
+services:
+  app:
+    image: ${BUSCAEDITAIS_IMAGE:-neguimzoiverde/editais-consignado-go-to:latest}
+    hostname: buscaeditais
+    environment:
+      - TZ=America/Sao_Paulo
+      - HOST=0.0.0.0
+      - PORT=4340
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+    volumes:
+      - editais_consignado_data:/app/data
+    networks:
+      - internal_network
+    # Labels para o tunnel-sync (ContainerSpec)
+    labels:
+      - "cloudflare.tunnel.enable=true"
+      - "cloudflare.tunnel.hostname=buscaeditais.siriusalpha.com.br"
+      - "cloudflare.tunnel.service=http://traefik:80"
+      - "cloudflare.tunnel.origin.no-tls-verify=true"
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: any
+      update_config:
+        order: stop-first
+        parallelism: 1
+        delay: 5s
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=internal_network"
+        - "traefik.http.services.buscaeditais.loadbalancer.server.port=4340"
+        - "traefik.http.services.buscaeditais.loadbalancer.passhostheader=true"
+
+        - "traefik.http.middlewares.buscaeditais-compress.compress=true"
+        - "traefik.http.middlewares.buscaeditais-sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+
+        # --- Tailscale curto: https://buscaeditais ---
+        - "traefik.http.middlewares.buscaeditais-ts-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+        - "traefik.http.middlewares.buscaeditais-ts-headers.headers.customrequestheaders.X-Forwarded-Host=buscaeditais"
+        - "traefik.http.routers.buscaeditais-ts.rule=Host(`buscaeditais`)"
+        - "traefik.http.routers.buscaeditais-ts.service=buscaeditais"
+        - "traefik.http.routers.buscaeditais-ts.entrypoints=websecure"
+        - "traefik.http.routers.buscaeditais-ts.tls=true"
+        - "traefik.http.routers.buscaeditais-ts.middlewares=buscaeditais-compress,buscaeditais-ts-headers"
+
+        # --- Público: https://buscaeditais.siriusalpha.com.br (HTTPS + HTTP p/ cloudflared→:80) ---
+        - "traefik.http.middlewares.buscaeditais-ext-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+        - "traefik.http.middlewares.buscaeditais-ext-headers.headers.customrequestheaders.X-Forwarded-Host=buscaeditais.siriusalpha.com.br"
+        - "traefik.http.routers.buscaeditais-ext.rule=Host(`buscaeditais.siriusalpha.com.br`)"
+        - "traefik.http.routers.buscaeditais-ext.service=buscaeditais"
+        - "traefik.http.routers.buscaeditais-ext.entrypoints=websecure"
+        - "traefik.http.routers.buscaeditais-ext.tls=true"
+        - "traefik.http.routers.buscaeditais-ext.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.buscaeditais-ext.middlewares=buscaeditais-compress,buscaeditais-ext-headers"
+        - "traefik.http.routers.buscaeditais-ext-http.rule=Host(`buscaeditais.siriusalpha.com.br`)"
+        - "traefik.http.routers.buscaeditais-ext-http.service=buscaeditais"
+        - "traefik.http.routers.buscaeditais-ext-http.entrypoints=web"
+        - "traefik.http.routers.buscaeditais-ext-http.middlewares=buscaeditais-compress,buscaeditais-ext-headers"
+
+        # Cloudflare Tunnel automático
+        - "cloudflare.tunnel.enable=true"
+        - "cloudflare.tunnel.hostname=buscaeditais.siriusalpha.com.br"
+        - "cloudflare.tunnel.service=http://traefik:80"
+        - "cloudflare.tunnel.origin.no-tls-verify=true"
+
+volumes:
+  editais_consignado_data:
+    name: editais_consignado_data
+
+networks:
+  internal_network:
+    external: true
