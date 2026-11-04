@@ -14,7 +14,8 @@ Conta com uma **interface moderna e responsiva construída em Astro (SSR + Tailw
   - **Diário Oficial dos Municípios de Goiás (AGM / SIGPub):** Raspagem e extração automatizada de avisos de credenciamento e chamamentos públicos de consignado e cartões de benefício para os 246 municípios goianos.
   - **Portais Eletrônicos Vinculados:** Cobertura de editais do Portal de Compras Públicas, Compras.gov.br e Licitanet sincronizados às bases oficiais.
 - **Fuso Horário Oficial:** `America/Sao_Paulo`.
-- **Deduplicação e Histórico:** Rastreamento persistente com detecção de novos processos, retificações, prorrogações e suspensões.
+- **Deduplicação Inteligente:** Cruzamento semântico entre publicações do Diário Oficial AGM e do PNCP, consolidando processos idênticos com selo duplo (`PNCP + Diário AGM`) e múltiplos links diretos.
+- **Tabela Interativa com Ordenação Multicoluna:** Suporte a clique nos cabeçalhos para ordenação instantânea por Município/UF, Órgão, Edital/Processo, Objeto, Publicação (ordem cronológica real) e Situação/Prazo (prioridade de status), com setas indicativas de direção.
 
 ---
 
