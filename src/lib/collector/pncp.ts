@@ -1,5 +1,5 @@
 import { APP_CONFIG } from '../config.js';
-import { upsertEdital, logSync } from '../db/database.js';
+import { upsertEdital, logSync, getDb } from '../db/database.js';
 
 function formatBRDate(isoString: string | null | undefined): string {
   if (!isoString) return 'não informado na fonte consultada';
@@ -27,7 +27,6 @@ function cleanCityName(rawOrgao: string): string {
     .replace(/^IPRE[A-Z]*\s*-\s*/i, '')
     .trim();
 
-  // Converte para Title Case
   return name
     .toLowerCase()
     .split(' ')
@@ -42,29 +41,76 @@ export function isConsignadoRelevant(objeto: string): boolean {
   if (!objeto) return false;
   const text = objeto.toLowerCase();
 
-  // Verifica falsos positivos óbvios
-  for (const fp of APP_CONFIG.falsePositiveKeywords) {
-    if (text.includes(fp) && !text.includes('consignad') && !text.includes('desconto em folha')) {
-      return false;
-    }
+  // 1. Exclusões estritas (Falsos positivos de tributos, frotas, merenda e afins)
+  const strictExclusions = [
+    'arrecadação de tributos',
+    'arrecadacao de tributos',
+    'arrecadação municipal',
+    'dívida ativa',
+    'divida ativa',
+    'receitas públicas',
+    'receitas publicas',
+    'combustível',
+    'combustivel',
+    'abastecimento',
+    'merenda',
+    'passagens rodoviárias',
+    'passagens rodoviarias',
+    'passagem aérea',
+    'manutenção de veículos',
+    'peças para veículos',
+    'locação de veículos',
+    'crédito de carbono',
+  ];
+
+  for (const exc of strictExclusions) {
+    if (text.includes(exc)) return false;
   }
 
-  // Verifica se contém qualquer termo central
-  for (const term of APP_CONFIG.searchTerms) {
-    if (text.includes(term.toLowerCase())) return true;
+  // 2. Indicadores estritos de Consignado, Cartão Consignado e Cartão Benefício
+  const hasConsignado = (
+    text.includes('consignad') || // consignado, consignados, consignada, consignatária, consignatárias
+    text.includes('consignaç') || // consignação, consignações
+    text.includes('averbaç')      // averbação de consignados
+  );
+
+  const hasCartaoConsignadoOuBeneficio = (
+    text.includes('cartão benefício') ||
+    text.includes('cartao beneficio') ||
+    text.includes('cartão consignado') ||
+    text.includes('cartao consignado') ||
+    text.includes('cartão de benefício') ||
+    text.includes('cartao de beneficio')
+  );
+
+  const hasEmprestimoEmFolha = (
+    (text.includes('empréstimo') || text.includes('emprestimo') || text.includes('crédito pessoal') || text.includes('credito pessoal') || text.includes('mútuo') || text.includes('mutuo')) &&
+    (text.includes('desconto em folha') || text.includes('consigna') || (text.includes('folha') && text.includes('servidor')))
+  );
+
+  // O edital DEVE ter pelo menos um dos 3 pilares
+  const isTargetTheme = hasConsignado || hasCartaoConsignadoOuBeneficio || hasEmprestimoEmFolha;
+  if (!isTargetTheme) {
+    return false;
   }
 
-  // Regras semânticas combinadas
-  const hasConsignado = text.includes('consignad') || text.includes('consignaç') || text.includes('averbaç');
-  const hasFolha = text.includes('folha de pagamento') || text.includes('folha dos servidores') || text.includes('desconto em folha');
-  const hasBancoOuFinanceira = text.includes('instituiç') || text.includes('financeir') || text.includes('banco') || text.includes('bancári');
-  const hasCartao = text.includes('cartão benefício') || text.includes('cartao beneficio') || text.includes('cartão consignado');
+  // 3. Rejeita se for MERAMENTE processamento de folha de pagamento (pagamento de salários/contas-salário do município)
+  // a menos que especifique expressamente empréstimo ou cartão consignado
+  const isOnlyPayrollProcessing = (
+    text.includes('processamento e gerenciamento da folha') ||
+    text.includes('processamento e pagamento da folha') ||
+    text.includes('valores líquidos da folha') ||
+    text.includes('valores liquidos da folha') ||
+    text.includes('serviços relativos à folha de pagamento') ||
+    text.includes('servicos relativos a folha de pagamento') ||
+    text.includes('gerenciamento de créditos provenientes da folha')
+  );
 
-  if (hasConsignado) return true;
-  if (hasCartao) return true;
-  if (hasFolha && hasBancoOuFinanceira) return true;
+  if (isOnlyPayrollProcessing && !hasConsignado && !hasCartaoConsignadoOuBeneficio && !hasEmprestimoEmFolha) {
+    return false;
+  }
 
-  return false;
+  return true;
 }
 
 export function determineSituacao(objeto: string, dataFimStr?: string | null): 'aberto' | 'encerrado' | 'suspenso' | 'retificado' | 'não informada' {
@@ -84,18 +130,38 @@ export function determineSituacao(objeto: string, dataFimStr?: string | null): '
   }
 }
 
+export function cleanFalsePositivesFromDb() {
+  const db = getDb();
+  const rows = db.prepare('SELECT id, objeto FROM editais').all() as { id: string; objeto: string }[];
+  const deleteStmt = db.prepare('DELETE FROM editais WHERE id = ?');
+  let removedCount = 0;
+
+  for (const r of rows) {
+    if (!isConsignadoRelevant(r.objeto)) {
+      deleteStmt.run(r.id);
+      removedCount++;
+    }
+  }
+
+  if (removedCount > 0) {
+    console.log(`[DB Cleanup] Removidos ${removedCount} editais que não correspondiam a consignado/empréstimo/cartão.`);
+  }
+}
+
 export async function runPncpSync(): Promise<{ totalFound: number; newItems: number; updatedItems: number }> {
+  // Limpa falsos positivos anteriores
+  cleanFalsePositivesFromDb();
+
   let totalFound = 0;
   let newItems = 0;
   let updatedItems = 0;
 
-  // Busca propostas abertas e vigentes com data final até o fim de 2026
+  // Busca propostas abertas e vigentes até o fim de 2026
   const dataFinalQuery = '20261231';
 
   for (const uf of APP_CONFIG.states) {
     try {
-      // Itera até 10 páginas por estado
-      for (let page = 1; page <= 10; page++) {
+      for (let page = 1; page <= 15; page++) {
         const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=${dataFinalQuery}&uf=${uf}&pagina=${page}&tamanhoPagina=50`;
         const res = await fetch(url, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConsignadoCollector/1.0' },
@@ -144,7 +210,6 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
           if (result.isUpdated) updatedItems++;
         }
 
-        // Se a página retornou menos que 50, é a última
         if (data.data.length < 50) break;
       }
     } catch (err) {
@@ -158,7 +223,7 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
     new_count: newItems,
     updated_count: updatedItems,
     status: 'success',
-    message: `Varredura concluída. ${totalFound} editais de consignado identificados (${newItems} novos, ${updatedItems} atualizados).`,
+    message: `Varredura concluída com filtro estrito de consignado/cartão. ${totalFound} processos legítimos encontrados.`,
   });
 
   return { totalFound, newItems, updatedItems };
