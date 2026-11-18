@@ -32,13 +32,28 @@ export function initPrefeiturasCatalog(): { seeded: number; total: number } {
   }
 
   console.log('[Prefeituras Catalog] Inicializando catálogo de 5.571 municípios do Brasil...');
-  const seedPath = path.join(process.cwd(), 'src/lib/data/prefeituras_seed.json');
+  const candidatePaths = [
+    path.join(process.cwd(), 'src/lib/data/prefeituras_seed.json'),
+    path.join(process.cwd(), 'data/prefeituras_seed.json'),
+    path.join(process.env.DATA_DIR || '/app/data', 'prefeituras_seed.json'),
+    path.join(process.cwd(), 'dist/lib/data/prefeituras_seed.json'),
+    path.resolve(path.dirname(new URL(import.meta.url).pathname), '../data/prefeituras_seed.json'),
+  ];
 
-  if (!fs.existsSync(seedPath)) {
-    console.warn('[Prefeituras Catalog] Seed file não encontrado em:', seedPath);
+  let seedPath: string | null = null;
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      seedPath = p;
+      break;
+    }
+  }
+
+  if (!seedPath) {
+    console.warn('[Prefeituras Catalog] Seed file não encontrado em nenhum dos caminhos:', candidatePaths);
     return { seeded: 0, total: 0 };
   }
 
+  console.log(`[Prefeituras Catalog] Carregando seed a partir de: ${seedPath}`);
   const raw = fs.readFileSync(seedPath, 'utf8');
   const items = JSON.parse(raw) as Array<{ ibge: string; nome: string; uf: string; regiao: string }>;
 

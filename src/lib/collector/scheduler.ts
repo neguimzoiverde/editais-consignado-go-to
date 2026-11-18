@@ -93,11 +93,11 @@ export function deduplicateAndGroupEditais(): { mergedCount: number } {
             }
 
             updateStmt.run(
-              consolidatedNum,
+              consolidatedNum || pncpItem.numero_edital || 'Edital Consolidado',
               'Portal da Prefeitura + PNCP',
-              pncpItem.link_edital || pncpItem.link_fonte,
-              portalItem.link_fonte || portalItem.portal_prefeitura_url,
-              portalItem.prazo_credenciamento || pncpItem.prazo_credenciamento,
+              pncpItem.link_edital || pncpItem.link_fonte || '',
+              portalItem.link_fonte || portalItem.portal_prefeitura_url || null,
+              portalItem.prazo_credenciamento || pncpItem.prazo_credenciamento || null,
               pncpItem.id
             );
 

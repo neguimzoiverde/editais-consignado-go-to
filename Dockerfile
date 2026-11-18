@@ -37,6 +37,7 @@ RUN mkdir -p /app/data
 COPY package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY src/lib/data/prefeituras_seed.json ./src/lib/data/prefeituras_seed.json
 
 EXPOSE 4340
 
