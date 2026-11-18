@@ -113,11 +113,6 @@ export function getDb(): DatabaseSync {
       is_new INTEGER DEFAULT 1
     );
 
-    CREATE INDEX IF NOT EXISTS idx_editais_uf ON editais(uf);
-    CREATE INDEX IF NOT EXISTS idx_editais_situacao ON editais(situacao);
-    CREATE INDEX IF NOT EXISTS idx_editais_pub ON editais(data_publicacao);
-    CREATE INDEX IF NOT EXISTS idx_editais_chamamento ON editais(is_chamamento);
-
     CREATE TABLE IF NOT EXISTS prefeituras (
       codigo_ibge TEXT PRIMARY KEY,
       municipio TEXT NOT NULL,
@@ -131,9 +126,6 @@ export function getDb(): DatabaseSync {
       ultima_verificacao TEXT,
       total_editais_encontrados INTEGER DEFAULT 0
     );
-
-    CREATE INDEX IF NOT EXISTS idx_pref_uf ON prefeituras(uf);
-    CREATE INDEX IF NOT EXISTS idx_pref_status ON prefeituras(status_catalogo);
 
     CREATE TABLE IF NOT EXISTS sync_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,6 +161,16 @@ export function getDb(): DatabaseSync {
   safeAddColumn("documentacao_exigida TEXT DEFAULT 'Habilitação Jurídica e Regularidade Fiscal'");
   safeAddColumn("contato_orgao TEXT");
   safeAddColumn("portal_prefeitura_url TEXT");
+
+  // Índices (executados após garantir todas as colunas)
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_editais_uf ON editais(uf);
+    CREATE INDEX IF NOT EXISTS idx_editais_situacao ON editais(situacao);
+    CREATE INDEX IF NOT EXISTS idx_editais_pub ON editais(data_publicacao);
+    CREATE INDEX IF NOT EXISTS idx_editais_chamamento ON editais(is_chamamento);
+    CREATE INDEX IF NOT EXISTS idx_pref_uf ON prefeituras(uf);
+    CREATE INDEX IF NOT EXISTS idx_pref_status ON prefeituras(status_catalogo);
+  `);
 
   dbInstance = db;
   return db;
