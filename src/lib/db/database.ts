@@ -412,7 +412,7 @@ export function getStats() {
   const total = (db.prepare('SELECT COUNT(*) as count FROM editais').get() as { count: number }).count;
   const totalChamamentos = (db.prepare('SELECT COUNT(*) as count FROM editais WHERE is_chamamento = 1').get() as { count: number }).count;
   const abertosBrasil = (db.prepare("SELECT COUNT(*) as count FROM editais WHERE situacao IN ('aberto', 'em andamento')").get() as { count: number }).count;
-  const prefeiturasCatalogadas = (db.prepare("SELECT COUNT(*) as count FROM prefeituras WHERE status_catalogo = 'catalogado'").get() as { count: number }).count;
+  const prefeiturasCatalogadas = (db.prepare("SELECT COUNT(*) as count FROM prefeituras").get() as { count: number }).count;
   const novosHoje = (db.prepare("SELECT COUNT(*) as count FROM editais WHERE is_new = 1 AND date(created_at) = date('now')").get() as { count: number }).count;
 
   return { total, totalChamamentos, abertosBrasil, prefeiturasCatalogadas, novosHoje };
