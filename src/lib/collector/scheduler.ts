@@ -1,6 +1,9 @@
 import cron from 'node-cron';
 import { runPncpSync } from './pncp.js';
 import { runAgmSync } from './agm.js';
+import { runKnownPortalsSync } from './prefeitura_portal.js';
+import { runLicitacoesPrefeituraSync } from './licitacoes_prefeitura.js';
+import { initPrefeiturasCatalog } from './prefeituras_catalog.js';
 import { getStats, logSync, getDb, type Edital } from '../db/database.js';
 
 let isSchedulerStarted = false;
@@ -31,14 +34,12 @@ export function areSameEdital(editalA: Edital, editalB: Edital): boolean {
   const union = new Set([...wordsA, ...wordsB]);
   const jaccard = union.size > 0 ? intersection.length / union.size : 0;
 
-  // Ambos envolvem BaaS e consignação no mesmo município
-  const bothHaveBaas = (objA.includes('baas') || objA.includes('banking as service')) && (objB.includes('baas') || objB.includes('banking as service'));
+  // Ambos envolvem consignação no mesmo município
   const bothHaveConsignado = (objA.includes('consignad') || objA.includes('consignac')) && (objB.includes('consignad') || objB.includes('consignac'));
 
-  if (bothHaveBaas && bothHaveConsignado) return true;
-  if (jaccard >= 0.35 && bothHaveConsignado) return true;
+  if (jaccard >= 0.30 && bothHaveConsignado) return true;
 
-  // Verificação de número idêntico de edital (ex: 003/2025)
+  // Verificação de número idêntico de edital (ex: 004/2026, 002/2026, 003/2025)
   const numA = (editalA.numero_edital || '').match(/[0-9]{1,4}\/[0-9]{4}/);
   const numB = (editalB.numero_edital || '').match(/[0-9]{1,4}\/[0-9]{4}/);
   if (numA && numB && numA[0] === numB[0]) return true;
@@ -64,6 +65,8 @@ export function deduplicateAndGroupEditais(): { mergedCount: number } {
       numero_edital = ?,
       origem = ?,
       link_edital = ?,
+      portal_prefeitura_url = COALESCE(?, portal_prefeitura_url),
+      prazo_credenciamento = COALESCE(?, prazo_credenciamento),
       updated_at = datetime('now')
     WHERE id = ?
   `);
@@ -77,28 +80,47 @@ export function deduplicateAndGroupEditais(): { mergedCount: number } {
         const b = items[j];
 
         if (areSameEdital(a, b)) {
-          // Identifica qual registro é PNCP e qual é AGM
+          // Identifica registros de diferentes fontes
           const pncpItem = a.origem.includes('PNCP') ? a : (b.origem.includes('PNCP') ? b : a);
+          const portalItem = a.origem.includes('Portal da Prefeitura') ? a : (b.origem.includes('Portal da Prefeitura') ? b : null);
           const agmItem = a.origem.includes('AGM') ? a : (b.origem.includes('AGM') ? b : null);
 
-          if (agmItem && pncpItem.id !== agmItem.id) {
-            // Consolida a numeração do edital
+          // 1. Agrupamento Portal da Prefeitura + PNCP
+          if (portalItem && pncpItem.id !== portalItem.id) {
+            let consolidatedNum = pncpItem.numero_edital;
+            if (portalItem.numero_edital && !portalItem.numero_edital.toLowerCase().includes('chamamento')) {
+              consolidatedNum = `${portalItem.numero_edital} (PNCP: ${pncpItem.numero_edital})`;
+            }
+
+            updateStmt.run(
+              consolidatedNum,
+              'Portal da Prefeitura + PNCP',
+              pncpItem.link_edital || pncpItem.link_fonte,
+              portalItem.link_fonte || portalItem.portal_prefeitura_url,
+              portalItem.prazo_credenciamento || pncpItem.prazo_credenciamento,
+              pncpItem.id
+            );
+
+            deleteStmt.run(portalItem.id);
+            mergedCount++;
+            console.log(`[Deduplicação] Agrupado edital de ${pncpItem.municipio}: Portal da Prefeitura + PNCP`);
+          }
+          // 2. Agrupamento PNCP + Diário Oficial (AGM)
+          else if (agmItem && pncpItem.id !== agmItem.id) {
             let consolidatedNum = pncpItem.numero_edital;
             if (agmItem.numero_edital && !agmItem.numero_edital.toLowerCase().includes('edital de') && !agmItem.numero_edital.toLowerCase().includes('credenciamento')) {
               consolidatedNum = `${agmItem.numero_edital} (PNCP: ${pncpItem.numero_edital})`;
-            } else if (agmItem.numero_edital) {
-              consolidatedNum = `${agmItem.numero_edital} / PNCP ${pncpItem.numero_edital}`;
             }
 
-            // Atualiza registro canônico do PNCP com dupla origem e link do Diário Oficial
             updateStmt.run(
               consolidatedNum,
               'PNCP + Diário Oficial (AGM)',
               agmItem.link_fonte || agmItem.link_edital,
+              null,
+              null,
               pncpItem.id
             );
 
-            // Remove o registro duplicado isolado do AGM
             deleteStmt.run(agmItem.id);
             mergedCount++;
             console.log(`[Deduplicação] Agrupado edital de ${pncpItem.municipio}: PNCP + Diário Oficial (AGM)`);
@@ -111,7 +133,8 @@ export function deduplicateAndGroupEditais(): { mergedCount: number } {
   return { mergedCount };
 }
 
-export async function runAllCollectors(): Promise<{
+export async function runAllCollectors(targetUfs?: string[]): Promise<{
+  portais: { totalFound: number; newItems: number };
   pncp: { totalFound: number; newItems: number; updatedItems: number };
   agm: { totalFound: number; newItems: number; updatedItems: number };
   mergedCount: number;
@@ -119,17 +142,35 @@ export async function runAllCollectors(): Promise<{
   newItems: number;
   updatedItems: number;
 }> {
-  console.log('[Collector Orchestrator] Iniciando varredura multi-fonte (PNCP + Diários Oficiais)...');
+  console.log('[Collector Orchestrator] Iniciando varredura multi-fonte (Portais de Prefeituras + PNCP Nacional + Diários)...');
 
-  const pncpRes = await runPncpSync();
+  // Garante catálogo de 5.571 municípios inicializado
+  initPrefeiturasCatalog();
+
+  // 1. Varre os portais diretos de prefeituras conhecidos
+  // 1. Varre o agregador nacional de prefeituras (licitacoesprefeitura.com.br)
+  let lpRes = { totalFound: 0, newItems: 0, updatedItems: 0 };
+  try {
+    lpRes = await runLicitacoesPrefeituraSync();
+  } catch (err) {
+    console.error('[Scheduler] Erro ao varrer LicitaçõesPrefeitura:', err);
+  }
+
+  // 2. Varre portais municipais diretos conhecidos (Valparaíso, Rio Verde, Anápolis, etc.)
+  const portaisRes = await runKnownPortalsSync();
+
+  // 3. Varre o PNCP Nacional
+  const pncpRes = await runPncpSync(targetUfs);
+
+  // 4. Varre Diário Oficial dos Municípios
   const agmRes = await runAgmSync();
 
-  // Executa o agrupamento e deduplicação inteligente entre portais
+  // 5. Executa o agrupamento e deduplicação inteligente entre todas as fontes
   const dedupRes = deduplicateAndGroupEditais();
 
-  const totalFound = pncpRes.totalFound + agmRes.totalFound;
-  const newItems = pncpRes.newItems + agmRes.newItems - dedupRes.mergedCount;
-  const updatedItems = pncpRes.updatedItems + agmRes.updatedItems + dedupRes.mergedCount;
+  const totalFound = lpRes.totalFound + portaisRes.totalFound + pncpRes.totalFound + agmRes.totalFound;
+  const newItems = lpRes.newItems + portaisRes.newItems + pncpRes.newItems + agmRes.newItems - dedupRes.mergedCount;
+  const updatedItems = lpRes.updatedItems + pncpRes.updatedItems + agmRes.updatedItems + dedupRes.mergedCount;
 
   logSync({
     timestamp: new Date().toISOString(),
@@ -137,10 +178,12 @@ export async function runAllCollectors(): Promise<{
     new_count: Math.max(0, newItems),
     updated_count: updatedItems,
     status: 'success',
-    message: `Varredura multi-portal concluída: PNCP (${pncpRes.totalFound}) + Diário Oficial AGM (${agmRes.totalFound}). ${dedupRes.mergedCount} editais unificados e agrupados entre portais.`,
+    message: `Varredura multi-fonte concluída: LicitaçõesPrefeitura (${lpRes.totalFound}) + Portais Municipais (${portaisRes.totalFound}) + PNCP (${pncpRes.totalFound}) + Diário AGM (${agmRes.totalFound}). ${dedupRes.mergedCount} unificados.`,
   });
 
   return {
+    licitacoesPrefeitura: lpRes,
+    portais: portaisRes,
     pncp: pncpRes,
     agm: agmRes,
     mergedCount: dedupRes.mergedCount,
@@ -155,6 +198,7 @@ export function initScheduler() {
   isSchedulerStarted = true;
 
   console.log('[Scheduler] Inicializando agendador diário para editais de consignado (America/Sao_Paulo)...');
+  initPrefeiturasCatalog();
 
   cron.schedule(
     '0 7 * * *',

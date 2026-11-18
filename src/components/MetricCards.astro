@@ -2,10 +2,10 @@
 interface Props {
   stats: {
     total: number;
-    abertosGO: number;
-    abertosTO: number;
+    totalChamamentos: number;
+    abertosBrasil: number;
+    prefeiturasCatalogadas: number;
     novosHoje: number;
-    retificados: number;
   };
 }
 
@@ -13,40 +13,54 @@ const { stats } = Astro.props;
 ---
 
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-6">
-  <!-- Total Geral -->
+  <!-- Total Geral Brasil -->
   <div class="bg-zinc-900/80 border border-zinc-800/80 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-zinc-700 transition">
     <div class="flex items-center justify-between text-zinc-400 mb-1">
-      <span class="text-xs font-medium uppercase tracking-wider">Total Monitorado</span>
+      <span class="text-xs font-medium uppercase tracking-wider">Total Brasil</span>
       <svg class="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
       </svg>
     </div>
     <div class="text-2xl sm:text-3xl font-extrabold text-white" id="stat-total">{stats.total}</div>
-    <p class="text-[11px] text-zinc-500 mt-1">Goiás & Tocantins</p>
+    <p class="text-[11px] text-zinc-500 mt-1">27 UFs monitoradas</p>
   </div>
 
-  <!-- Abertos GO -->
+  <!-- Chamamentos Públicos / Credenciamentos -->
   <div class="bg-zinc-900/80 border border-emerald-900/40 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-emerald-700/50 transition">
     <div class="flex items-center justify-between text-emerald-400 mb-1">
-      <span class="text-xs font-medium uppercase tracking-wider">Abertos GO</span>
-      <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">GO</span>
+      <span class="text-xs font-medium uppercase tracking-wider">Chamamentos</span>
+      <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Foco</span>
     </div>
-    <div class="text-2xl sm:text-3xl font-extrabold text-emerald-300" id="stat-abertos-go">{stats.abertosGO}</div>
-    <p class="text-[11px] text-zinc-500 mt-1">Prazo de proposta ativo</p>
+    <div class="text-2xl sm:text-3xl font-extrabold text-emerald-300" id="stat-chamamentos">{stats.totalChamamentos}</div>
+    <p class="text-[11px] text-zinc-500 mt-1">Credenciamentos públicos</p>
   </div>
 
-  <!-- Abertos TO -->
+  <!-- Abertos / Vigentes -->
   <div class="bg-zinc-900/80 border border-teal-900/40 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-teal-700/50 transition">
     <div class="flex items-center justify-between text-teal-400 mb-1">
-      <span class="text-xs font-medium uppercase tracking-wider">Abertos TO</span>
-      <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-teal-500/10 border border-teal-500/20">TO</span>
+      <span class="text-xs font-medium uppercase tracking-wider">Abertos / Vigentes</span>
+      <svg class="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
     </div>
-    <div class="text-2xl sm:text-3xl font-extrabold text-teal-300" id="stat-abertos-to">{stats.abertosTO}</div>
-    <p class="text-[11px] text-zinc-500 mt-1">Prazo de proposta ativo</p>
+    <div class="text-2xl sm:text-3xl font-extrabold text-teal-300" id="stat-abertos">{stats.abertosBrasil}</div>
+    <p class="text-[11px] text-zinc-500 mt-1">Prazo ou fluxo contínuo</p>
+  </div>
+
+  <!-- Prefeituras Catalogadas -->
+  <div class="bg-zinc-900/80 border border-cyan-900/40 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-cyan-700/50 transition">
+    <div class="flex items-center justify-between text-cyan-400 mb-1">
+      <span class="text-xs font-medium uppercase tracking-wider">Prefeituras</span>
+      <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    </div>
+    <div class="text-2xl sm:text-3xl font-extrabold text-cyan-300" id="stat-prefeituras">{stats.prefeiturasCatalogadas}</div>
+    <p class="text-[11px] text-zinc-500 mt-1">Portais municipais</p>
   </div>
 
   <!-- Novos Hoje -->
-  <div class="bg-zinc-900/80 border border-indigo-900/40 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-indigo-700/50 transition">
+  <div class="bg-zinc-900/80 border border-indigo-900/40 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-indigo-700/50 transition col-span-2 md:col-span-1">
     <div class="flex items-center justify-between text-indigo-400 mb-1">
       <span class="text-xs font-medium uppercase tracking-wider">Novos Hoje</span>
       <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -54,18 +68,6 @@ const { stats } = Astro.props;
       </svg>
     </div>
     <div class="text-2xl sm:text-3xl font-extrabold text-indigo-300" id="stat-novos">{stats.novosHoje}</div>
-    <p class="text-[11px] text-zinc-500 mt-1">Capturados na rodada</p>
-  </div>
-
-  <!-- Retificados / Alterações -->
-  <div class="bg-zinc-900/80 border border-amber-900/40 rounded-xl p-3.5 sm:p-4 backdrop-blur-sm shadow-sm hover:border-amber-700/50 transition col-span-2 md:col-span-1">
-    <div class="flex items-center justify-between text-amber-400 mb-1">
-      <span class="text-xs font-medium uppercase tracking-wider">Retificados</span>
-      <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-      </svg>
-    </div>
-    <div class="text-2xl sm:text-3xl font-extrabold text-amber-300" id="stat-retificados">{stats.retificados}</div>
-    <p class="text-[11px] text-zinc-500 mt-1">Republicações / aditivos</p>
+    <p class="text-[11px] text-zinc-500 mt-1">Identificados na rodada</p>
   </div>
 </div>

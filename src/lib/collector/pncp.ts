@@ -1,5 +1,7 @@
 import { APP_CONFIG } from '../config.js';
 import { upsertEdital, logSync, getDb } from '../db/database.js';
+import { analyzeEdital } from './edital_analyzer.js';
+import { getDefaultPrefeituraUrls } from './prefeituras_catalog.js';
 
 function formatBRDate(isoString: string | null | undefined): string {
   if (!isoString) return 'não informado na fonte consultada';
@@ -183,7 +185,7 @@ export function cleanFalsePositivesFromDb() {
   }
 }
 
-export async function runPncpSync(): Promise<{ totalFound: number; newItems: number; updatedItems: number }> {
+export async function runPncpSync(targetUfs?: string[]): Promise<{ totalFound: number; newItems: number; updatedItems: number }> {
   cleanFalsePositivesFromDb();
 
   let totalFound = 0;
@@ -191,6 +193,7 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
   let updatedItems = 0;
 
   const dataFinalQuery = '20261231';
+  const ufsToScan = (targetUfs && targetUfs.length > 0) ? targetUfs : (APP_CONFIG.priorityStates as unknown as string[]);
 
   // Janelas de 365 dias para a rota de publicações (modalidade 12 - Credenciamento)
   const now = new Date();
@@ -210,9 +213,9 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
     { start: formatYmd(dTwoYearsAgo), end: formatYmd(new Date(dOneYearAgo.getTime() - 24 * 3600 * 1000)) },
   ];
 
-  for (const uf of APP_CONFIG.states) {
+  for (const uf of ufsToScan) {
     // 1. Consulta propostas abertas com data de encerramento
-    for (let page = 1; page <= 15; page++) {
+    for (let page = 1; page <= 10; page++) {
       try {
         const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataFinal=${dataFinalQuery}&uf=${uf}&pagina=${page}&tamanhoPagina=50`;
         const res = await fetch(url, {
@@ -240,20 +243,48 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
           const orgao = item.orgaoEntidade?.razaoSocial || `Órgão ${uf}`;
           const municipio = item.unidadeOrgao?.municipioNome || cleanCityName(orgao);
           const situacao = determineSituacao(objeto, item.dataEncerramentoProposta);
+          const dataPub = formatBRDate(item.dataAberturaProposta || item.dataInclusao);
+          const dataEnc = formatBRDate(item.dataEncerramentoProposta);
+
+          const analysis = analyzeEdital({
+            objeto,
+            numero_edital: item.numeroCompra || `${seq}/${ano}`,
+            modalidade: item.modalidadeNome || 'Credenciamento',
+            uf,
+            orgao,
+            data_publicacao: dataPub,
+            data_encerramento: dataEnc,
+          });
+
+          const defaultPortal = getDefaultPrefeituraUrls(municipio, uf);
 
           const result = upsertEdital({
             id,
             numero_edital: item.numeroCompra || `${seq}/${ano}`,
+            ano: analysis.ano,
             uf,
+            regiao: analysis.regiao,
             municipio,
             orgao,
             objeto,
-            modalidade: item.modalidadeNome || 'Credenciamento',
-            data_publicacao: formatBRDate(item.dataAberturaProposta || item.dataInclusao),
-            data_encerramento: formatBRDate(item.dataEncerramentoProposta),
+            modalidade: item.modalidadeNome || 'Credenciamento / Chamamento',
+            is_chamamento: analysis.is_chamamento,
+            tem_emprestimo: analysis.tem_emprestimo,
+            tipo_cartao: analysis.tipo_cartao,
+            data_publicacao: dataPub,
+            data_encerramento: dataEnc,
+            prazo_credenciamento: analysis.prazo_credenciamento,
+            bancos_credenciados: 'A apurar / Em habilitação',
+            sistema_averbacao: analysis.sistema_averbacao,
+            margem_consignavel: analysis.margem_consignavel,
+            prazo_maximo: analysis.prazo_maximo,
+            taxa_limitacao: analysis.taxa_limitacao,
+            documentacao_exigida: analysis.documentacao_exigida,
+            contato_orgao: analysis.contato_orgao,
             situacao,
             link_fonte: item.linkSistemaOrigem || linkOficial,
             link_edital: linkOficial,
+            portal_prefeitura_url: defaultPortal.portal_url,
             origem: 'PNCP (Portal Nacional de Contratações Públicas)',
           });
 
@@ -270,7 +301,7 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
 
     // 2. Consulta publicações na Modalidade 12 (Credenciamento Contínuo / Chamamento Público)
     for (const w of publicationWindows) {
-      const maxPages = uf === 'GO' ? 20 : 10;
+      const maxPages = (uf === 'GO' || uf === 'SP' || uf === 'MG') ? 15 : 8;
       for (let page = 1; page <= maxPages; page++) {
         try {
           const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?codigoModalidadeContratacao=12&uf=${uf}&dataInicial=${w.start}&dataFinal=${w.end}&pagina=${page}&tamanhoPagina=50`;
@@ -299,22 +330,50 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
             const orgao = item.orgaoEntidade?.razaoSocial || `Órgão ${uf}`;
             const municipio = item.unidadeOrgao?.municipioNome || cleanCityName(orgao);
             const situacao = determineSituacao(objeto, item.dataEncerramentoProposta);
+            const dataPub = formatBRDate(item.dataPublicacaoPncp || item.dataInclusao);
+            const dataEnc = item.dataEncerramentoProposta
+              ? formatBRDate(item.dataEncerramentoProposta)
+              : 'fluxo contínuo (aberto)';
+
+            const analysis = analyzeEdital({
+              objeto,
+              numero_edital: item.numeroCompra || `${seq}/${ano}`,
+              modalidade: item.modalidadeNome || 'Credenciamento',
+              uf,
+              orgao,
+              data_publicacao: dataPub,
+              data_encerramento: dataEnc,
+            });
+
+            const defaultPortal = getDefaultPrefeituraUrls(municipio, uf);
 
             const result = upsertEdital({
               id,
               numero_edital: item.numeroCompra || `${seq}/${ano}`,
+              ano: analysis.ano,
               uf,
+              regiao: analysis.regiao,
               municipio,
               orgao,
               objeto,
-              modalidade: item.modalidadeNome || 'Credenciamento',
-              data_publicacao: formatBRDate(item.dataPublicacaoPncp || item.dataInclusao),
-              data_encerramento: item.dataEncerramentoProposta
-                ? formatBRDate(item.dataEncerramentoProposta)
-                : 'fluxo contínuo (aberto)',
+              modalidade: item.modalidadeNome || 'Credenciamento / Chamamento',
+              is_chamamento: analysis.is_chamamento,
+              tem_emprestimo: analysis.tem_emprestimo,
+              tipo_cartao: analysis.tipo_cartao,
+              data_publicacao: dataPub,
+              data_encerramento: dataEnc,
+              prazo_credenciamento: analysis.prazo_credenciamento,
+              bancos_credenciados: 'A apurar / Em habilitação',
+              sistema_averbacao: analysis.sistema_averbacao,
+              margem_consignavel: analysis.margem_consignavel,
+              prazo_maximo: analysis.prazo_maximo,
+              taxa_limitacao: analysis.taxa_limitacao,
+              documentacao_exigida: analysis.documentacao_exigida,
+              contato_orgao: analysis.contato_orgao,
               situacao,
               link_fonte: item.linkSistemaOrigem || linkOficial,
               link_edital: linkOficial,
+              portal_prefeitura_url: defaultPortal.portal_url,
               origem: 'PNCP (Portal Nacional de Contratações Públicas)',
             });
 
@@ -337,7 +396,7 @@ export async function runPncpSync(): Promise<{ totalFound: number; newItems: num
     new_count: newItems,
     updated_count: updatedItems,
     status: 'success',
-    message: `Varredura PNCP concluída. ${totalFound} processos legítimos encontrados.`,
+    message: `Varredura PNCP concluída. ${totalFound} processos legítimos encontrados (${ufsToScan.length} estados).`,
   });
 
   return { totalFound, newItems, updatedItems };

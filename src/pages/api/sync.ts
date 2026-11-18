@@ -2,9 +2,11 @@ import type { APIRoute } from 'astro';
 import { runAllCollectors } from '../../lib/collector/scheduler.js';
 import { getStats, getLastSync } from '../../lib/db/database.js';
 
-export const POST: APIRoute = async () => {
+export const POST: APIRoute = async ({ url }) => {
   try {
-    const result = await runAllCollectors();
+    const targetUf = url.searchParams.get('uf');
+    const ufs = targetUf && targetUf !== 'ALL' ? [targetUf] : undefined;
+    const result = await runAllCollectors(ufs);
     const stats = getStats();
     const lastSync = getLastSync();
 
