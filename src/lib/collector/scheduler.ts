@@ -134,6 +134,7 @@ export function deduplicateAndGroupEditais(): { mergedCount: number } {
 }
 
 export async function runAllCollectors(targetUfs?: string[]): Promise<{
+  licitacoesPrefeitura: { totalFound: number; newItems: number; updatedItems: number };
   portais: { totalFound: number; newItems: number };
   pncp: { totalFound: number; newItems: number; updatedItems: number };
   agm: { totalFound: number; newItems: number; updatedItems: number };

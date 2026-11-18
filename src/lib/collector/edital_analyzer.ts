@@ -7,6 +7,7 @@ export interface EditalAnalysis {
   tem_emprestimo: 'Sim' | 'Não';
   tipo_cartao: 'Cartão Consignado' | 'Cartão Benefício' | 'Ambos' | 'Não';
   prazo_credenciamento: string;
+  bancos_credenciados: string;
   sistema_averbacao: string;
   margem_consignavel: string;
   prazo_maximo: string;
@@ -159,6 +160,7 @@ export function analyzeEdital(params: {
     tem_emprestimo: temEmprestimo,
     tipo_cartao: tipoCartao,
     prazo_credenciamento: prazoCred,
+    bancos_credenciados: 'A apurar / Em habilitação',
     sistema_averbacao: sistemaAverbacao,
     margem_consignavel: margem,
     prazo_maximo: prazoMax,

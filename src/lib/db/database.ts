@@ -176,7 +176,7 @@ export function getDb(): DatabaseSync {
   return db;
 }
 
-export function upsertEdital(item: Omit<Edital, 'created_at' | 'updated_at' | 'is_new'>): { isNew: boolean; isUpdated: boolean } {
+export function upsertEdital(item: Partial<Edital> & Pick<Edital, 'id' | 'objeto' | 'orgao' | 'uf' | 'link_fonte'>): { isNew: boolean; isUpdated: boolean } {
   const db = getDb();
   const now = new Date().toISOString();
 
@@ -208,7 +208,7 @@ export function upsertEdital(item: Omit<Edital, 'created_at' | 'updated_at' | 'i
       ano,
       item.uf,
       regiao,
-      item.municipio,
+      item.municipio || 'Não informado',
       item.orgao,
       item.objeto,
       item.modalidade || 'Credenciamento / Chamamento',
@@ -225,7 +225,7 @@ export function upsertEdital(item: Omit<Edital, 'created_at' | 'updated_at' | 'i
       item.taxa_limitacao || 'Teto BACEN / Fixado em edital',
       item.documentacao_exigida || 'Habilitação Jurídica e Regularidade Fiscal',
       item.contato_orgao || item.orgao,
-      item.situacao,
+      item.situacao || 'aberto',
       item.link_fonte,
       item.link_edital || item.link_fonte,
       item.portal_prefeitura_url || '',
@@ -274,7 +274,7 @@ export function upsertEdital(item: Omit<Edital, 'created_at' | 'updated_at' | 'i
       ano,
       item.uf,
       regiao,
-      item.municipio,
+      item.municipio || 'Não informado',
       item.orgao,
       item.objeto,
       item.modalidade || 'Credenciamento / Chamamento',
