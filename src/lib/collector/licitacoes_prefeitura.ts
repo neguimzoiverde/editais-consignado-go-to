@@ -205,7 +205,13 @@ export async function runLicitacoesPrefeituraSync(options?: {
         // Busca detalhes completos para obter edital no PNCP e texto na íntegra
         const detail = await fetchLicitacaoPrefeituraDetail(item.url);
         const finalObjeto = detail?.fullObjeto || item.objeto;
-        const analysis = analyzeEdital(finalObjeto, item.modalidade, detail?.propostasAte || item.prazoPropostas);
+        const analysis = analyzeEdital({
+          objeto: finalObjeto,
+          modalidade: item.modalidade,
+          uf: item.uf,
+          orgao: item.orgao,
+          data_encerramento: detail?.propostasAte || item.prazoPropostas,
+        });
 
         // Se a análise classificou como não-consignado, descarta
         if (analysis.tem_emprestimo === 'Não' && analysis.tipo_cartao === 'Não') {

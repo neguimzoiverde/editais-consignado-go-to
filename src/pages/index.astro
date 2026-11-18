@@ -814,31 +814,51 @@ const lastSync = getLastSync();
       const spinner = document.getElementById('sync-spinner');
 
       btn.disabled = true;
-      text.textContent = 'Varrendo Fontes...';
+      text.textContent = 'Iniciando varredura...';
       spinner.classList.add('animate-spin');
 
       try {
         const res = await fetch('/api/sync', { method: 'POST' });
         const json = await res.json();
         if (json.success) {
-          const resEditais = await fetch('/api/editais');
-          allEditais = await resEditais.json();
-          renderTable();
+          text.textContent = 'Varrendo fontes...';
+          // Polling periódico a cada 4 segundos para atualizar os resultados em tempo real
+          let polls = 0;
+          const pollInterval = setInterval(async () => {
+            polls++;
+            try {
+              const resEditais = await fetch('/api/editais');
+              allEditais = await resEditais.json();
+              renderTable();
 
-          if (json.stats) {
-            document.getElementById('stat-total').textContent = json.stats.total;
-            document.getElementById('stat-chamamentos').textContent = json.stats.totalChamamentos;
-            document.getElementById('stat-abertos').textContent = json.stats.abertosBrasil;
-            document.getElementById('stat-prefeituras').textContent = json.stats.prefeiturasCatalogadas;
-            document.getElementById('stat-novos').textContent = json.stats.novosHoje;
-          }
-          alert(`Varredura multi-fonte concluída!\n${json.data.totalFound} processos identificados (${json.data.newItems} novos).`);
+              const resHealth = await fetch('/api/health');
+              const hJson = await resHealth.json();
+              if (hJson.stats) {
+                document.getElementById('stat-total').textContent = hJson.stats.total;
+                document.getElementById('stat-chamamentos').textContent = hJson.stats.totalChamamentos;
+                document.getElementById('stat-abertos').textContent = hJson.stats.abertosBrasil;
+                document.getElementById('stat-prefeituras').textContent = hJson.stats.prefeiturasCatalogadas;
+                document.getElementById('stat-novos').textContent = hJson.stats.novosHoje;
+              }
+            } catch (e) {
+              console.warn('Polling error:', e);
+            }
+
+            if (polls >= 6) {
+              clearInterval(pollInterval);
+              btn.disabled = false;
+              text.textContent = 'Varredura Agora';
+              spinner.classList.remove('animate-spin');
+            }
+          }, 4000);
         } else {
           alert('Erro na varredura: ' + (json.error || 'Erro desconhecido'));
+          btn.disabled = false;
+          text.textContent = 'Varredura Agora';
+          spinner.classList.remove('animate-spin');
         }
       } catch (err) {
         alert('Erro ao conectar com o serviço: ' + err.message);
-      } finally {
         btn.disabled = false;
         text.textContent = 'Varredura Agora';
         spinner.classList.remove('animate-spin');
