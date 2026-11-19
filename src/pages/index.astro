@@ -944,20 +944,20 @@ const initialFolhaStats = listFolhaStats();
         const comissPct = total > 0 ? Math.round((comiss / total) * 100) : 0;
         const tempPct = total > 0 ? Math.max(0, 100 - (efetPct + inatPct + comissPct)) : 0;
 
-        const folhaBruta = f.valor_folha_bruta ?? f.folha_mensal_bruta ?? 0;
-        const folhaLiquida = f.valor_folha_liquida ?? f.folha_mensal_liquida ?? 0;
-        const margem35 = f.potencial_margem_35 || 0;
-        const margemCartao5 = f.potencial_cartao_5 ?? f.potencial_margem_cartao_5 ?? 0;
+        const valFolhaBruta = f.valor_folha_bruta ?? f.folha_mensal_bruta ?? 0;
+        const valFolhaLiquida = f.valor_folha_liquida ?? f.folha_mensal_liquida ?? 0;
+        const valMargem35 = f.potencial_margem_35 || 0;
+        const valMargemCartao5 = f.potencial_cartao_5 ?? f.potencial_margem_cartao_5 ?? 0;
 
         if (folhaSub) folhaSub.textContent = `Inteligência de Folha — ${f.municipio}/${f.uf} (${f.codigo_ibge ? `IBGE: ${f.codigo_ibge}` : 'Quadro Municipal'})`;
         if (folhaComp) folhaComp.textContent = `Competência: ${f.competencia || '2024-Q2 (Tesouro/RGF)'}`;
         if (folhaTotal) folhaTotal.textContent = total.toLocaleString('pt-BR');
         if (folhaElegiveis) folhaElegiveis.textContent = `${eleg.toLocaleString('pt-BR')} (${elegPct}%)`;
         if (folhaEfetivosPct) folhaEfetivosPct.textContent = `${efetPct}% Concursados/Efetivos`;
-        if (folhaBruta) folhaBruta.textContent = `R$ ${folhaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        if (folhaLiquida) folhaLiquida.textContent = `Líquido est.: R$ ${folhaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        if (folhaMargem) folhaMargem.textContent = `R$ ${margem35.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
-        if (folhaCartao) folhaCartao.textContent = `Cartão (5%): R$ ${margemCartao5.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+        if (folhaBruta) folhaBruta.textContent = `R$ ${valFolhaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (folhaLiquida) folhaLiquida.textContent = `Líquido est.: R$ ${valFolhaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (folhaMargem) folhaMargem.textContent = `R$ ${valMargem35.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+        if (folhaCartao) folhaCartao.textContent = `Cartão (5%): R$ ${valMargemCartao5.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
         if (breakdownText) breakdownText.textContent = `${efet} Efetivos (${efetPct}%) · ${inat} Inativos (${inatPct}%) · ${comiss} Comissionados · ${temp} Temporários`;
         if (folhaFonte) folhaFonte.textContent = `Fonte: ${f.fonte_dados || f.fonte || 'Transparência Municipal / SICONFI'}`;
 
