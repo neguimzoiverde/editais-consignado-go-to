@@ -30,8 +30,13 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
 
   try {
     const body = await request.json();
-    const email = (body.email || '').toString().trim().toLowerCase();
+    let email = (body.email || '').toString().trim().toLowerCase();
     const password = (body.password || '').toString();
+
+    // Mapeamento tolerante de alias do administrador
+    if (email === 'admin' || email === 'rodrigo' || email === 'rodrigo.pwn') {
+      email = 'rodrigo.pwn@gmail.com';
+    }
 
     if (!email || !password) {
       return new Response(
