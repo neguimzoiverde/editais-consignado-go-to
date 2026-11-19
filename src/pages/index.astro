@@ -725,11 +725,12 @@ const initialFolhaStats = listFolhaStats();
         const folha = getFolhaForMunicipio(item.municipio, item.uf);
         let folhaPill = '';
         if (folha && folha.total_servidores > 0) {
-          const elegPct = Math.round((folha.servidores_elegiveis / folha.total_servidores) * 100);
+          const elegCount = folha.elegiveis_consignado ?? folha.servidores_elegiveis ?? 0;
+          const elegPct = folha.elegiveis_pct || (folha.total_servidores > 0 ? Math.round((elegCount / folha.total_servidores) * 100) : 0);
           const sCount = folha.total_servidores > 999 ? (folha.total_servidores / 1000).toFixed(1) + 'k' : folha.total_servidores;
           folhaPill = `
             <div class="mt-1">
-              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="${folha.total_servidores.toLocaleString('pt-BR')} servidores cadastrados · ${folha.servidores_elegiveis.toLocaleString('pt-BR')} elegíveis a consignado">
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="${folha.total_servidores.toLocaleString('pt-BR')} servidores cadastrados · ${elegCount.toLocaleString('pt-BR')} elegíveis a consignado">
                 <span>👥</span>
                 <span>${sCount} serv.</span>
                 <span class="text-zinc-600">·</span>
@@ -931,29 +932,34 @@ const initialFolhaStats = listFolhaStats();
         }
 
         const total = f.total_servidores || 0;
-        const eleg = f.servidores_elegiveis || 0;
-        const efet = f.servidores_efetivos || 0;
-        const inat = f.servidores_aposentados || 0;
-        const comiss = f.servidores_comissionados || 0;
-        const temp = f.servidores_temporarios || 0;
+        const eleg = f.elegiveis_consignado ?? f.servidores_elegiveis ?? 0;
+        const efet = f.total_efetivos ?? f.servidores_efetivos ?? 0;
+        const inat = (f.total_aposentados || 0) + (f.total_pensionistas || 0) || f.servidores_aposentados || 0;
+        const comiss = f.total_comissionados ?? f.servidores_comissionados ?? 0;
+        const temp = f.total_temporarios ?? f.servidores_temporarios ?? 0;
 
-        const elegPct = total > 0 ? Math.round((eleg / total) * 100) : 0;
+        const elegPct = f.elegiveis_pct || (total > 0 ? Math.round((eleg / total) * 100) : 0);
         const efetPct = total > 0 ? Math.round((efet / total) * 100) : 0;
         const inatPct = total > 0 ? Math.round((inat / total) * 100) : 0;
         const comissPct = total > 0 ? Math.round((comiss / total) * 100) : 0;
         const tempPct = total > 0 ? Math.max(0, 100 - (efetPct + inatPct + comissPct)) : 0;
+
+        const folhaBruta = f.valor_folha_bruta ?? f.folha_mensal_bruta ?? 0;
+        const folhaLiquida = f.valor_folha_liquida ?? f.folha_mensal_liquida ?? 0;
+        const margem35 = f.potencial_margem_35 || 0;
+        const margemCartao5 = f.potencial_cartao_5 ?? f.potencial_margem_cartao_5 ?? 0;
 
         if (folhaSub) folhaSub.textContent = `Inteligência de Folha — ${f.municipio}/${f.uf} (${f.codigo_ibge ? `IBGE: ${f.codigo_ibge}` : 'Quadro Municipal'})`;
         if (folhaComp) folhaComp.textContent = `Competência: ${f.competencia || '2024-Q2 (Tesouro/RGF)'}`;
         if (folhaTotal) folhaTotal.textContent = total.toLocaleString('pt-BR');
         if (folhaElegiveis) folhaElegiveis.textContent = `${eleg.toLocaleString('pt-BR')} (${elegPct}%)`;
         if (folhaEfetivosPct) folhaEfetivosPct.textContent = `${efetPct}% Concursados/Efetivos`;
-        if (folhaBruta) folhaBruta.textContent = `R$ ${(f.folha_mensal_bruta || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        if (folhaLiquida) folhaLiquida.textContent = `Líquido est.: R$ ${(f.folha_mensal_liquida || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        if (folhaMargem) folhaMargem.textContent = `R$ ${(f.potencial_margem_35 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
-        if (folhaCartao) folhaCartao.textContent = `Cartão (5%): R$ ${(f.potencial_margem_cartao_5 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+        if (folhaBruta) folhaBruta.textContent = `R$ ${folhaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (folhaLiquida) folhaLiquida.textContent = `Líquido est.: R$ ${folhaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (folhaMargem) folhaMargem.textContent = `R$ ${margem35.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+        if (folhaCartao) folhaCartao.textContent = `Cartão (5%): R$ ${margemCartao5.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
         if (breakdownText) breakdownText.textContent = `${efet} Efetivos (${efetPct}%) · ${inat} Inativos (${inatPct}%) · ${comiss} Comissionados · ${temp} Temporários`;
-        if (folhaFonte) folhaFonte.textContent = `Fonte: ${f.fonte || 'Transparência Municipal / SICONFI'}`;
+        if (folhaFonte) folhaFonte.textContent = `Fonte: ${f.fonte_dados || f.fonte || 'Transparência Municipal / SICONFI'}`;
 
         if (barEfetivos) barEfetivos.style.width = `${Math.max(5, efetPct)}%`;
         if (barAposentados) barAposentados.style.width = `${inatPct}%`;
@@ -1219,10 +1225,10 @@ const initialFolhaStats = listFolhaStats();
 
       for (const it of filtered) {
         sumServidores += (it.total_servidores || 0);
-        sumElegiveis += (it.servidores_elegiveis || 0);
-        sumFolhaBruta += (it.folha_mensal_bruta || 0);
+        sumElegiveis += (it.elegiveis_consignado ?? it.servidores_elegiveis ?? 0);
+        sumFolhaBruta += (it.valor_folha_bruta ?? it.folha_mensal_bruta ?? 0);
         sumMargem35 += (it.potencial_margem_35 || 0);
-        sumMargemCartao += (it.potencial_margem_cartao_5 || 0);
+        sumMargemCartao += (it.potencial_cartao_5 ?? it.potencial_margem_cartao_5 ?? 0);
       }
 
       const kpiServ = document.getElementById('kpi-folha-servidores');
@@ -1252,17 +1258,22 @@ const initialFolhaStats = listFolhaStats();
 
       tbody.innerHTML = filtered.map(item => {
         const total = item.total_servidores || 0;
-        const eleg = item.servidores_elegiveis || 0;
-        const efet = item.servidores_efetivos || 0;
-        const inat = item.servidores_aposentados || 0;
-        const comiss = item.servidores_comissionados || 0;
-        const temp = item.servidores_temporarios || 0;
+        const eleg = item.elegiveis_consignado ?? item.servidores_elegiveis ?? 0;
+        const efet = item.total_efetivos ?? item.servidores_efetivos ?? 0;
+        const inat = (item.total_aposentados || 0) + (item.total_pensionistas || 0) || item.servidores_aposentados || 0;
+        const comiss = item.total_comissionados ?? item.servidores_comissionados ?? 0;
+        const temp = item.total_temporarios ?? item.servidores_temporarios ?? 0;
 
-        const elegPct = total > 0 ? Math.round((eleg / total) * 100) : 0;
+        const elegPct = item.elegiveis_pct || (total > 0 ? Math.round((eleg / total) * 100) : 0);
         const efetPct = total > 0 ? Math.round((efet / total) * 100) : 0;
         const inatPct = total > 0 ? Math.round((inat / total) * 100) : 0;
         const comissPct = total > 0 ? Math.round((comiss / total) * 100) : 0;
         const tempPct = total > 0 ? Math.max(0, 100 - (efetPct + inatPct + comissPct)) : 0;
+
+        const folhaBruta = item.valor_folha_bruta ?? item.folha_mensal_bruta ?? 0;
+        const folhaLiq = item.valor_folha_liquida ?? item.folha_mensal_liquida ?? 0;
+        const margem35 = item.potencial_margem_35 || 0;
+        const cartao5 = item.potencial_cartao_5 ?? item.potencial_margem_cartao_5 ?? 0;
 
         const ufColors = {
           'GO': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -1311,17 +1322,17 @@ const initialFolhaStats = listFolhaStats();
             </td>
 
             <td class="py-3 px-3 text-right font-mono whitespace-nowrap">
-              <span class="text-xs font-bold text-zinc-200">R$ ${(item.folha_mensal_bruta || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span class="text-[10px] text-zinc-500 block">Líq: R$ ${(item.folha_mensal_liquida || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-xs font-bold text-zinc-200">R$ ${folhaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-[10px] text-zinc-500 block">Líq: R$ ${folhaLiq.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </td>
 
             <td class="py-3 px-3 text-right font-mono whitespace-nowrap">
-              <span class="text-xs font-black text-emerald-400">R$ ${(item.potencial_margem_35 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-xs font-black text-emerald-400">R$ ${margem35.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span class="text-[10px] text-emerald-500/80 block">35% Empréstimo</span>
             </td>
 
             <td class="py-3 px-3 text-right font-mono whitespace-nowrap">
-              <span class="text-xs font-bold text-teal-400">R$ ${(item.potencial_margem_cartao_5 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-xs font-bold text-teal-400">R$ ${cartao5.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span class="text-[10px] text-teal-500/80 block">5% Cartão</span>
             </td>
 
