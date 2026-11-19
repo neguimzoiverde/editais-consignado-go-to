@@ -1,5 +1,6 @@
 import { getDb, upsertFolhaStats, type PrefeituraFolhaStats } from '../db/database.js';
 import { calculateMargins } from './bondClassifier.js';
+import { resolveTransparenciaInfo } from './transparenciaResolver.js';
 
 export interface SyncFolhaResult {
   success: boolean;
@@ -89,7 +90,9 @@ export async function syncMunicipioFolha(municipio: string, uf?: string): Promis
   const codIbge = prefRow?.codigo_ibge || '0000000';
   const targetUf = prefRow?.uf || uf || 'BR';
   const regiao = prefRow?.regiao || 'Brasil';
-  const portalUrl = prefRow?.portal_url || prefRow?.licitacoes_url || `https://${cleanMun.toLowerCase().replace(/\s+/g, '')}.${targetUf.toLowerCase()}.gov.br`;
+
+  // Resolução precisa do portal da transparência, folha de servidores e Tribunal de Contas
+  const resolved = resolveTransparenciaInfo(cleanMun, targetUf, codIbge);
 
   // 1. Tenta consulta oficial SICONFI / STN
   let siconfiData = null;
@@ -145,8 +148,11 @@ export async function syncMunicipioFolha(municipio: string, uf?: string): Promis
     valor_folha_liquida: folhaMensalLiquida,
     potencial_margem_35: margins.margemEmprestimo35,
     potencial_cartao_5: margins.margemCartao5,
-    fonte_dados: siconfiData ? 'STN / SICONFI RGF Anexo 1' : (existing?.fonte_dados || 'Transparência Municipal'),
-    link_transparencia: portalUrl,
+    fonte_dados: siconfiData ? 'STN / SICONFI RGF Anexo 1' : (existing?.fonte_dados || resolved.fonte_primaria),
+    sistema_transparencia: resolved.sistema_transparencia,
+    link_transparencia: resolved.link_transparencia,
+    link_folha_pagamento: resolved.link_folha_pagamento,
+    link_tce: resolved.link_tce,
     updated_at: new Date().toISOString(),
   };
 

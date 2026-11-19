@@ -77,7 +77,10 @@ export interface PrefeituraFolhaStats {
   potencial_margem_35: number;
   potencial_cartao_5: number;
   fonte_dados: string;
+  sistema_transparencia?: string | null;
   link_transparencia?: string | null;
+  link_folha_pagamento?: string | null;
+  link_tce?: string | null;
   updated_at: string;
 }
 
@@ -274,6 +277,18 @@ export function getDb(): DatabaseSync {
   safeAddColumn("portal_prefeitura_url TEXT");
   safeAddColumn("link_chamamento TEXT");
   safeAddColumn("link_portal_compras TEXT");
+
+  // Migrações da tabela prefeituras_folha_stats
+  const safeAddFolhaColumn = (colDef: string) => {
+    try {
+      db.exec(`ALTER TABLE prefeituras_folha_stats ADD COLUMN ${colDef};`);
+    } catch {
+      // Coluna já existe
+    }
+  };
+  safeAddFolhaColumn("sistema_transparencia TEXT DEFAULT 'Transparência Municipal'");
+  safeAddFolhaColumn("link_folha_pagamento TEXT");
+  safeAddFolhaColumn("link_tce TEXT");
 
   // Índices (executados após garantir todas as colunas)
   db.exec(`
@@ -712,7 +727,8 @@ export function upsertFolhaStats(stats: PrefeituraFolhaStats): void {
       elegiveis_consignado, elegiveis_pct,
       valor_folha_bruta, valor_folha_liquida,
       potencial_margem_35, potencial_cartao_5,
-      fonte_dados, link_transparencia, updated_at
+      fonte_dados, sistema_transparencia, link_transparencia,
+      link_folha_pagamento, link_tce, updated_at
     ) VALUES (
       ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
@@ -720,6 +736,7 @@ export function upsertFolhaStats(stats: PrefeituraFolhaStats): void {
       ?, ?,
       ?, ?,
       ?, ?,
+      ?, ?, ?,
       ?, ?, ?
     )
     ON CONFLICT(codigo_ibge) DO UPDATE SET
@@ -738,7 +755,10 @@ export function upsertFolhaStats(stats: PrefeituraFolhaStats): void {
       potencial_margem_35 = excluded.potencial_margem_35,
       potencial_cartao_5 = excluded.potencial_cartao_5,
       fonte_dados = excluded.fonte_dados,
+      sistema_transparencia = excluded.sistema_transparencia,
       link_transparencia = excluded.link_transparencia,
+      link_folha_pagamento = excluded.link_folha_pagamento,
+      link_tce = excluded.link_tce,
       updated_at = excluded.updated_at
   `);
 
@@ -762,7 +782,10 @@ export function upsertFolhaStats(stats: PrefeituraFolhaStats): void {
     stats.potencial_margem_35,
     stats.potencial_cartao_5,
     stats.fonte_dados || 'Transparência Municipal',
+    stats.sistema_transparencia || 'Transparência Municipal',
     stats.link_transparencia || null,
+    stats.link_folha_pagamento || null,
+    stats.link_tce || null,
     now
   );
 }

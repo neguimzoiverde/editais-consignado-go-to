@@ -729,13 +729,27 @@ const initialFolhaStats = listFolhaStats();
           const elegPct = folha.elegiveis_pct || (folha.total_servidores > 0 ? Math.round((elegCount / folha.total_servidores) * 100) : 0);
           const sCount = folha.total_servidores > 999 ? (folha.total_servidores / 1000).toFixed(1) + 'k' : folha.total_servidores;
           folhaPill = `
-            <div class="mt-1">
+            <div class="mt-1 flex items-center gap-1">
               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="${folha.total_servidores.toLocaleString('pt-BR')} servidores cadastrados · ${elegCount.toLocaleString('pt-BR')} elegíveis a consignado">
                 <span>👥</span>
                 <span>${sCount} serv.</span>
                 <span class="text-zinc-600">·</span>
                 <span class="font-bold text-emerald-300">${elegPct}% eleg.</span>
               </span>
+              ${folha.link_folha_pagamento || folha.link_transparencia ? `
+                <a
+                  href="${folha.link_folha_pagamento || folha.link_transparencia}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onclick="event.stopPropagation()"
+                  class="p-1 rounded bg-zinc-800/80 hover:bg-emerald-500 text-zinc-400 hover:text-zinc-950 transition border border-zinc-700/60 inline-flex items-center"
+                  title="Abrir Folha / Transparência (${folha.sistema_transparencia || 'Municipal'})"
+                >
+                  <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              ` : ''}
             </div>
           `;
         }
@@ -912,6 +926,10 @@ const initialFolhaStats = listFolhaStats();
       const folhaCartao = document.getElementById('modal-folha-cartao');
       const breakdownText = document.getElementById('modal-breakdown-text');
       const folhaFonte = document.getElementById('modal-folha-fonte');
+      const folhaSistema = document.getElementById('modal-folha-sistema');
+      const folhaTceNome = document.getElementById('modal-folha-tce-nome');
+      const btnFolha = document.getElementById('modal-btn-folha');
+      const btnTce = document.getElementById('modal-btn-tce');
       const barEfetivos = document.getElementById('modal-bar-efetivos');
       const barAposentados = document.getElementById('modal-bar-aposentados');
       const barComissionados = document.getElementById('modal-bar-comissionados');
@@ -928,6 +946,16 @@ const initialFolhaStats = listFolhaStats();
           if (folhaLiquida) folhaLiquida.textContent = 'Líquido: —';
           if (folhaMargem) folhaMargem.textContent = '—';
           if (folhaCartao) folhaCartao.textContent = 'Cartão: —';
+          if (folhaSistema) folhaSistema.textContent = 'Mapeando Sistema...';
+          if (folhaTceNome) folhaTceNome.textContent = 'Tribunal de Contas';
+          if (btnFolha) {
+            btnFolha.setAttribute('href', '#');
+            btnFolha.classList.add('opacity-50', 'pointer-events-none');
+          }
+          if (btnTce) {
+            btnTce.setAttribute('href', '#');
+            btnTce.classList.add('opacity-50', 'pointer-events-none');
+          }
           return;
         }
 
@@ -960,6 +988,30 @@ const initialFolhaStats = listFolhaStats();
         if (folhaCartao) folhaCartao.textContent = `Cartão (5%): R$ ${valMargemCartao5.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
         if (breakdownText) breakdownText.textContent = `${efet} Efetivos (${efetPct}%) · ${inat} Inativos (${inatPct}%) · ${comiss} Comissionados · ${temp} Temporários`;
         if (folhaFonte) folhaFonte.textContent = `Fonte: ${f.fonte_dados || f.fonte || 'Transparência Municipal / SICONFI'}`;
+
+        if (folhaSistema) folhaSistema.textContent = f.sistema_transparencia || 'Transparência Municipal';
+        if (folhaTceNome) folhaTceNome.textContent = f.link_tce ? 'Tribunal de Contas (TCE)' : 'Tribunal de Contas';
+
+        if (btnFolha) {
+          const targetUrl = f.link_folha_pagamento || f.link_transparencia;
+          if (targetUrl) {
+            btnFolha.setAttribute('href', targetUrl);
+            btnFolha.classList.remove('opacity-50', 'pointer-events-none');
+          } else {
+            btnFolha.setAttribute('href', '#');
+            btnFolha.classList.add('opacity-50', 'pointer-events-none');
+          }
+        }
+
+        if (btnTce) {
+          if (f.link_tce) {
+            btnTce.setAttribute('href', f.link_tce);
+            btnTce.classList.remove('opacity-50', 'pointer-events-none');
+          } else {
+            btnTce.setAttribute('href', '#');
+            btnTce.classList.add('opacity-50', 'pointer-events-none');
+          }
+        }
 
         if (barEfetivos) barEfetivos.style.width = `${Math.max(5, efetPct)}%`;
         if (barAposentados) barAposentados.style.width = `${inatPct}%`;
@@ -1295,7 +1347,7 @@ const initialFolhaStats = listFolhaStats();
                 </span>
                 <span class="font-bold text-zinc-100">${item.municipio}</span>
               </div>
-              <span class="text-[10px] text-zinc-500 font-mono block mt-0.5">${item.codigo_ibge ? `IBGE: ${item.codigo_ibge}` : ''} ${item.regiao ? `· Região ${item.regiao}` : ''}</span>
+              <span class="text-[10px] text-zinc-500 font-mono block mt-0.5">${item.codigo_ibge ? `IBGE: ${item.codigo_ibge}` : ''} ${item.sistema_transparencia ? `· ${item.sistema_transparencia}` : ''}</span>
             </td>
 
             <td class="py-3 px-3 text-right whitespace-nowrap">
@@ -1343,13 +1395,43 @@ const initialFolhaStats = listFolhaStats();
             </td>
 
             <td class="py-3 px-3 text-center whitespace-nowrap">
-              <button
-                onclick="syncSingleFolha('${item.municipio}', '${item.uf}')"
-                class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-zinc-800 hover:bg-emerald-500 hover:text-zinc-950 text-zinc-300 transition cursor-pointer border border-zinc-700"
-                title="Sincronizar dados de transparência e SICONFI"
-              >
-                Atualizar
-              </button>
+              <div class="flex items-center justify-center gap-1.5">
+                ${(item.link_folha_pagamento || item.link_transparencia) ? `
+                  <a
+                    href="${item.link_folha_pagamento || item.link_transparencia}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-zinc-950 transition border border-emerald-500/20 inline-flex items-center justify-center cursor-pointer"
+                    title="Acessar Folha de Pagamento / Transparência (${item.sistema_transparencia || 'Municipal'})"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                ` : ''}
+
+                ${item.link_tce ? `
+                  <a
+                    href="${item.link_tce}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500 text-indigo-300 hover:text-white transition border border-indigo-500/20 inline-flex items-center justify-center cursor-pointer"
+                    title="Consultar no Tribunal de Contas (${item.uf})"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </a>
+                ` : ''}
+
+                <button
+                  onclick="syncSingleFolha('${item.municipio}', '${item.uf}')"
+                  class="px-2 py-1 text-[10px] font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer border border-zinc-700"
+                  title="Sincronizar dados de transparência e SICONFI"
+                >
+                  Sync
+                </button>
+              </div>
             </td>
           </tr>
         `;
