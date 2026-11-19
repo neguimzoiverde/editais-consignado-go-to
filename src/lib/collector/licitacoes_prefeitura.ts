@@ -1,5 +1,6 @@
 import { upsertEdital, getDb, type Edital } from '../db/database.js';
 import { analyzeEdital } from './edital_analyzer.js';
+import { fetchPncpDirectDocumentUrl } from './pncp.js';
 import { APP_CONFIG } from '../config.js';
 
 const BASE_URL = 'https://licitacoesprefeitura.com.br';
@@ -222,6 +223,15 @@ export async function runLicitacoesPrefeituraSync(options?: {
           ? `pncp_${detail.pncpId.replace(/[^a-zA-Z0-9]/g, '_')}`
           : `lp_${item.url.replace(/[^a-zA-Z0-9]/g, '_').slice(-40)}`;
 
+        let directChamamentoUrl: string | null = null;
+        if (detail?.pncpUrl) {
+          const match = detail.pncpUrl.match(/\/app\/editais\/([0-9]+)\/([0-9]{4})\/([0-9]+)/);
+          if (match) {
+            const docInfo = await fetchPncpDirectDocumentUrl(match[1], match[2], match[3]);
+            directChamamentoUrl = docInfo.docUrl;
+          }
+        }
+
         const editalData: Partial<Edital> & { id: string; objeto: string; orgao: string; uf: string; link_fonte: string } = {
           id,
           numero_edital: detail?.pncpId || item.modalidade,
@@ -246,8 +256,10 @@ export async function runLicitacoesPrefeituraSync(options?: {
           documentacao_exigida: analysis.documentacao_exigida,
           contato_orgao: analysis.contato_orgao,
           situacao: 'aberto',
-          link_fonte: detail?.pncpUrl || item.url,
+          link_chamamento: directChamamentoUrl,
+          link_portal_compras: item.url,
           link_edital: detail?.pncpUrl || item.url,
+          link_fonte: detail?.pncpUrl || item.url,
           portal_prefeitura_url: item.url,
           origem: detail?.pncpUrl ? 'LicitaçõesPrefeitura + PNCP' : 'LicitaçõesPrefeitura',
         };

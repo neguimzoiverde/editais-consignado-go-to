@@ -22,6 +22,8 @@ export interface Edital {
   documentacao_exigida: string;
   contato_orgao: string;
   link_edital: string;
+  link_chamamento?: string | null;     // 1º Grau de Importância: Documento Direto do Chamamento
+  link_portal_compras?: string | null; // 2º Grau de Importância: Portal de Compras / Prefeitura
 
   // Metadados técnicos adicionais
   uf: BrazilUF | string;
@@ -161,6 +163,8 @@ export function getDb(): DatabaseSync {
   safeAddColumn("documentacao_exigida TEXT DEFAULT 'Habilitação Jurídica e Regularidade Fiscal'");
   safeAddColumn("contato_orgao TEXT");
   safeAddColumn("portal_prefeitura_url TEXT");
+  safeAddColumn("link_chamamento TEXT");
+  safeAddColumn("link_portal_compras TEXT");
 
   // Índices (executados após garantir todas as colunas)
   db.exec(`
@@ -198,8 +202,9 @@ export function upsertEdital(item: Partial<Edital> & Pick<Edital, 'id' | 'objeto
         is_chamamento, tem_emprestimo, tipo_cartao, data_publicacao, data_encerramento,
         prazo_credenciamento, bancos_credenciados, sistema_averbacao, margem_consignavel,
         prazo_maximo, taxa_limitacao, documentacao_exigida, contato_orgao, situacao,
-        link_fonte, link_edital, portal_prefeitura_url, origem, historico, created_at, updated_at, is_new
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        link_fonte, link_edital, portal_prefeitura_url, link_chamamento, link_portal_compras,
+        origem, historico, created_at, updated_at, is_new
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `);
 
     insertStmt.run(
@@ -229,6 +234,8 @@ export function upsertEdital(item: Partial<Edital> & Pick<Edital, 'id' | 'objeto
       item.link_fonte,
       item.link_edital || item.link_fonte,
       item.portal_prefeitura_url || '',
+      item.link_chamamento ?? null,
+      item.link_portal_compras ?? null,
       item.origem || 'PNCP',
       JSON.stringify([{ date: now, event: 'Registro inicial capturado' }]),
       now,
@@ -264,6 +271,8 @@ export function upsertEdital(item: Partial<Edital> & Pick<Edital, 'id' | 'objeto
         link_fonte = ?,
         link_edital = ?,
         portal_prefeitura_url = COALESCE(?, portal_prefeitura_url),
+        link_chamamento = COALESCE(?, link_chamamento),
+        link_portal_compras = COALESCE(?, link_portal_compras),
         origem = ?,
         updated_at = ?
       WHERE id = ?
@@ -295,6 +304,8 @@ export function upsertEdital(item: Partial<Edital> & Pick<Edital, 'id' | 'objeto
       item.link_fonte || '',
       item.link_edital || item.link_fonte || '',
       item.portal_prefeitura_url ?? null,
+      item.link_chamamento ?? null,
+      item.link_portal_compras ?? null,
       item.origem || 'PNCP',
       now,
       item.id
@@ -431,4 +442,102 @@ export function getLastSync(): SyncLog | null {
   const db = getDb();
   const row = db.prepare('SELECT * FROM sync_history ORDER BY id DESC LIMIT 1').get();
   return (row as unknown as SyncLog) || null;
+}
+
+export interface ProcessLinks {
+  // 1º Grau de Importância: Chamamento Público (Documento Direto)
+  linkChamamento: string | null;
+  chamamentoStatus: 'encontrado' | 'nao_encontrado';
+  chamamentoLabel: string;
+
+  // 2º Grau de Importância: Portal de Compras Públicas / Portal da Prefeitura
+  linkPortalCompras: string | null;
+  portalComprasStatus: 'encontrado' | 'nao_encontrado';
+  portalComprasLabel: string;
+
+  // 3º Grau de Importância: Edital / PNCP
+  linkEdital: string | null;
+  editalStatus: 'encontrado' | 'nao_encontrado';
+  editalLabel: string;
+}
+
+export function resolveProcessLinks(item: {
+  link_chamamento?: string | null;
+  link_portal_compras?: string | null;
+  link_edital?: string | null;
+  link_fonte?: string | null;
+  portal_prefeitura_url?: string | null;
+  origem?: string | null;
+}): ProcessLinks {
+  const isDirectDoc = (url: string | null | undefined): boolean => {
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+    const lower = url.toLowerCase();
+    return (
+      lower.includes('/arquivos/') ||
+      lower.includes('.pdf') ||
+      lower.includes('.zip') ||
+      lower.includes('/sgdispensa/') ||
+      lower.includes('/licitacao/id=') ||
+      lower.includes('download')
+    );
+  };
+
+  const isComprasPortal = (url: string | null | undefined): boolean => {
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+    const lower = url.toLowerCase();
+    return (
+      lower.includes('compraspublicas.com.br') ||
+      lower.includes('compras.gov.br') ||
+      lower.includes('comprasnet') ||
+      lower.includes('bllcompras.com') ||
+      lower.includes('bll.org.br') ||
+      lower.includes('licitanet.com.br') ||
+      lower.includes('bbmnet.com.br') ||
+      lower.includes('licitacoes-e.com.br') ||
+      lower.includes('prefeitura') ||
+      lower.includes('.gov.br')
+    ) && !lower.includes('pncp.gov.br/app/editais');
+  };
+
+  // 1º Grau de Importância: Chamamento Público (Documento Direto)
+  let chamamentoUrl: string | null = null;
+  if (item.link_chamamento && item.link_chamamento.trim().startsWith('http')) {
+    chamamentoUrl = item.link_chamamento.trim();
+  } else if (isDirectDoc(item.link_fonte)) {
+    chamamentoUrl = item.link_fonte!.trim();
+  } else if (isDirectDoc(item.link_edital)) {
+    chamamentoUrl = item.link_edital!.trim();
+  }
+
+  // 2º Grau de Importância: Portal de Compras Públicas / Portal da Prefeitura
+  let portalComprasUrl: string | null = null;
+  if (item.link_portal_compras && item.link_portal_compras.trim().startsWith('http')) {
+    portalComprasUrl = item.link_portal_compras.trim();
+  } else if (isComprasPortal(item.link_fonte)) {
+    portalComprasUrl = item.link_fonte!.trim();
+  } else if (item.portal_prefeitura_url && item.portal_prefeitura_url.trim().startsWith('http')) {
+    portalComprasUrl = item.portal_prefeitura_url.trim();
+  }
+
+  // 3º Grau de Importância: Edital / PNCP
+  let editalUrl: string | null = null;
+  if (item.link_edital && item.link_edital.trim().startsWith('http')) {
+    editalUrl = item.link_edital.trim();
+  } else if (item.link_fonte && item.link_fonte.trim().startsWith('http')) {
+    editalUrl = item.link_fonte.trim();
+  }
+
+  return {
+    linkChamamento: chamamentoUrl,
+    chamamentoStatus: chamamentoUrl ? 'encontrado' : 'nao_encontrado',
+    chamamentoLabel: chamamentoUrl ? 'Abrir Documento Direto' : 'Não encontrado',
+
+    linkPortalCompras: portalComprasUrl,
+    portalComprasStatus: portalComprasUrl ? 'encontrado' : 'nao_encontrado',
+    portalComprasLabel: portalComprasUrl ? 'Portal de Compras / Licitações' : 'Não encontrado',
+
+    linkEdital: editalUrl,
+    editalStatus: editalUrl ? 'encontrado' : 'nao_encontrado',
+    editalLabel: editalUrl ? 'Edital / Publicação Oficial' : 'Não encontrado',
+  };
 }

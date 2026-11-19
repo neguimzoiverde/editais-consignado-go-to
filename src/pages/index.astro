@@ -224,7 +224,7 @@ const lastSync = getLastSync();
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="situacao"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-24 text-right">Ações</th>
+                <th class="py-3.5 px-4 w-80 text-right">Links do Processo (Prioridade) & Ações</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-zinc-800/60 text-zinc-300">
@@ -407,6 +407,72 @@ const lastSync = getLastSync();
       return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400">Aberto</span>';
     }
 
+    function resolveProcessLinks(item) {
+      const isDirectDoc = (url) => {
+        if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+        const lower = url.toLowerCase();
+        return (
+          lower.includes('/arquivos/') ||
+          lower.includes('.pdf') ||
+          lower.includes('.zip') ||
+          lower.includes('/sgdispensa/') ||
+          lower.includes('/licitacao/id=') ||
+          lower.includes('download')
+        );
+      };
+
+      const isComprasPortal = (url) => {
+        if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+        const lower = url.toLowerCase();
+        return (
+          lower.includes('compraspublicas.com.br') ||
+          lower.includes('compras.gov.br') ||
+          lower.includes('comprasnet') ||
+          lower.includes('bllcompras.com') ||
+          lower.includes('bll.org.br') ||
+          lower.includes('licitanet.com.br') ||
+          lower.includes('bbmnet.com.br') ||
+          lower.includes('licitacoes-e.com.br') ||
+          lower.includes('prefeitura') ||
+          lower.includes('.gov.br')
+        ) && !lower.includes('pncp.gov.br/app/editais');
+      };
+
+      // 1º Grau de Importância: Chamamento Público (Documento Direto)
+      let chamamentoUrl = null;
+      if (item.link_chamamento && item.link_chamamento.trim().startsWith('http')) {
+        chamamentoUrl = item.link_chamamento.trim();
+      } else if (isDirectDoc(item.link_fonte)) {
+        chamamentoUrl = item.link_fonte.trim();
+      } else if (isDirectDoc(item.link_edital)) {
+        chamamentoUrl = item.link_edital.trim();
+      }
+
+      // 2º Grau de Importância: Portal de Compras Públicas / Portal da Prefeitura
+      let portalComprasUrl = null;
+      if (item.link_portal_compras && item.link_portal_compras.trim().startsWith('http')) {
+        portalComprasUrl = item.link_portal_compras.trim();
+      } else if (isComprasPortal(item.link_fonte)) {
+        portalComprasUrl = item.link_fonte.trim();
+      } else if (item.portal_prefeitura_url && item.portal_prefeitura_url.trim().startsWith('http')) {
+        portalComprasUrl = item.portal_prefeitura_url.trim();
+      }
+
+      // 3º Grau de Importância: Edital / PNCP
+      let editalUrl = null;
+      if (item.link_edital && item.link_edital.trim().startsWith('http')) {
+        editalUrl = item.link_edital.trim();
+      } else if (item.link_fonte && item.link_fonte.trim().startsWith('http')) {
+        editalUrl = item.link_fonte.trim();
+      }
+
+      return {
+        chamamento: chamamentoUrl,
+        compras: portalComprasUrl,
+        edital: editalUrl
+      };
+    }
+
     function renderTable() {
       const tbody = document.getElementById('table-body');
       const emptyState = document.getElementById('empty-state');
@@ -527,28 +593,99 @@ const lastSync = getLastSync();
               ${getSituacaoBadge(item.situacao)}
             </td>
             <td class="py-3 px-4 text-right">
-              <div class="flex items-center justify-end gap-1.5">
-                <button
-                  onclick="openDetail('${item.id}')"
-                  class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
-                  title="Ver 16 Colunas de Detalhes"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-                <a
-                  href="${item.link_fonte}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition cursor-pointer"
-                  title="Abrir Fonte Oficial"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
+              <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                ${(() => {
+                  const links = resolveProcessLinks(item);
+                  let html = '';
+
+                  // 1º Grau: Chamamento Público (Documento Direto)
+                  if (links.chamamento) {
+                    html += `
+                      <a
+                        href="${links.chamamento}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm cursor-pointer"
+                        title="1º Prioridade: Baixar Documento Direto do Chamamento"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span>Doc Chamamento</span>
+                      </a>
+                    `;
+                  } else {
+                    html += `
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800" title="Chamamento direto não localizado">
+                        Chamamento: Não encontrado
+                      </span>
+                    `;
+                  }
+
+                  // 2º Grau: Portal de Compras Públicas / Prefeitura
+                  if (links.compras) {
+                    html += `
+                      <a
+                        href="${links.compras}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 transition cursor-pointer"
+                        title="2º Prioridade: Portal de Compras Públicas / Prefeitura"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        <span>Compras</span>
+                      </a>
+                    `;
+                  } else {
+                    html += `
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800" title="Portal de compras não localizado">
+                        Compras: Não encontrado
+                      </span>
+                    `;
+                  }
+
+                  // 3º Grau: Edital / PNCP
+                  if (links.edital) {
+                    html += `
+                      <a
+                        href="${links.edital}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer"
+                        title="3º Prioridade: Publicação Oficial no PNCP"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>PNCP</span>
+                      </a>
+                    `;
+                  } else {
+                    html += `
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800" title="Edital no PNCP não localizado">
+                        PNCP: Não encontrado
+                      </span>
+                    `;
+                  }
+
+                  // Botão para abrir o Modal de 16 Colunas
+                  html += `
+                    <button
+                      onclick="openDetail('${item.id}')"
+                      class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer ml-1"
+                      title="Ver 16 Colunas de Detalhes"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                  `;
+
+                  return html;
+                })()}
               </div>
             </td>
           </tr>
@@ -592,27 +729,120 @@ const lastSync = getLastSync();
       document.getElementById('modal-objeto').textContent = item.objeto;
       document.getElementById('modal-origem').textContent = `Fonte: ${item.origem || 'PNCP'} · Atualizado em ${new Date(item.updated_at || Date.now()).toLocaleDateString('pt-BR')}`;
 
+      // SEÇÃO DE LINKS HIERÁRQUICOS (1º Chamamento -> 2º Compras -> 3º Edital)
+      const links = resolveProcessLinks(item);
+
+      // 1º Prioridade: Chamamento Público (Documento Direto)
+      const slotChamamento = document.getElementById('modal-slot-chamamento');
+      if (slotChamamento) {
+        if (links.chamamento) {
+          slotChamamento.innerHTML = `
+            <a
+              href="${links.chamamento}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-md cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>Baixar Documento Direto (PDF/Anexo)</span>
+            </a>
+          `;
+        } else {
+          slotChamamento.innerHTML = `
+            <span class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg">
+              Não encontrado
+            </span>
+          `;
+        }
+      }
+
+      // 2º Prioridade: Portal de Compras Públicas / Prefeitura
+      const slotCompras = document.getElementById('modal-slot-compras');
+      if (slotCompras) {
+        if (links.compras) {
+          slotCompras.innerHTML = `
+            <a
+              href="${links.compras}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 transition cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              <span>Acessar Portal de Compras / Licitações</span>
+            </a>
+          `;
+        } else {
+          slotCompras.innerHTML = `
+            <span class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg">
+              Não encontrado
+            </span>
+          `;
+        }
+      }
+
+      // 3º Prioridade: Edital / PNCP
+      const slotEdital = document.getElementById('modal-slot-edital');
+      if (slotEdital) {
+        if (links.edital) {
+          slotEdital.innerHTML = `
+            <a
+              href="${links.edital}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Ver Publicação Oficial (PNCP)</span>
+            </a>
+          `;
+        } else {
+          slotEdital.innerHTML = `
+            <span class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg">
+              Não encontrado
+            </span>
+          `;
+        }
+      }
+
       // Botões de Link no Footer
       const prefBtn = document.getElementById('modal-link-prefeitura');
       const secBtn = document.getElementById('modal-link-secundario');
       const ofcBtn = document.getElementById('modal-link-oficial');
       const ofcText = document.getElementById('modal-link-oficial-text');
 
-      if (item.portal_prefeitura_url && prefBtn) {
-        prefBtn.href = item.portal_prefeitura_url;
+      if (links.compras && prefBtn) {
+        prefBtn.href = links.compras;
         prefBtn.classList.remove('hidden');
       } else if (prefBtn) {
         prefBtn.classList.add('hidden');
       }
 
-      if (item.link_edital && item.link_edital !== item.link_fonte && secBtn) {
-        secBtn.href = item.link_edital;
+      if (links.chamamento && secBtn) {
+        secBtn.href = links.chamamento;
+        const secText = document.getElementById('modal-link-secundario-text');
+        if (secText) secText.textContent = 'Baixar Documento';
         secBtn.classList.remove('hidden');
       } else if (secBtn) {
         secBtn.classList.add('hidden');
       }
 
-      if (ofcBtn) ofcBtn.href = item.link_fonte;
+      if (ofcBtn) {
+        if (links.edital) {
+          ofcBtn.href = links.edital;
+          ofcBtn.classList.remove('hidden');
+        } else if (links.chamamento) {
+          ofcBtn.href = links.chamamento;
+          ofcBtn.classList.remove('hidden');
+        } else {
+          ofcBtn.classList.add('hidden');
+        }
+      }
       if (ofcText) {
         ofcText.textContent = item.origem?.includes('PNCP') ? 'Abrir no PNCP' : 'Abrir Fonte Oficial';
       }

@@ -126,6 +126,8 @@ export async function fetchAndScrapePortalNotice(url: string): Promise<Edital | 
       documentacao_exigida: analysis.documentacao_exigida,
       contato_orgao: analysis.contato_orgao,
       situacao: 'aberto' as const,
+      link_chamamento: url,
+      link_portal_compras: url,
       link_fonte: url,
       link_edital: url,
       portal_prefeitura_url: url,

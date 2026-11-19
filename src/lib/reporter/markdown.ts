@@ -1,4 +1,4 @@
-import { listEditais, type Edital } from '../db/database.js';
+import { listEditais, resolveProcessLinks, type Edital } from '../db/database.js';
 
 export function generateDailyMarkdownReport(filters?: { uf?: string; regiao?: string; somente_chamamento?: boolean }): string {
   const editais = listEditais(filters);
@@ -41,9 +41,11 @@ export function generateDailyMarkdownReport(filters?: { uf?: string; regiao?: st
       const doc = (item.documentacao_exigida || 'Habilitação Jurídica e Fiscal').replace(/\|/g, '-');
       const contato = (item.contato_orgao || item.orgao || 'Prefeitura').replace(/\|/g, '-');
       
-      const linkPrefeitura = item.portal_prefeitura_url ? `[Portal Prefeitura](${item.portal_prefeitura_url})` : '';
-      const linkPncp = item.link_fonte ? `[PNCP/Fonte Oficial](${item.link_fonte})` : '';
-      const linksCombined = [linkPrefeitura, linkPncp].filter(Boolean).join(' / ') || 'não informado';
+      const resolved = resolveProcessLinks(item);
+      const linkChamamentoStr = resolved.linkChamamento ? `[1º Chamamento (Doc)](${resolved.linkChamamento})` : '1º Chamamento: Não encontrado';
+      const linkComprasStr = resolved.linkPortalCompras ? `[2º Compras](${resolved.linkPortalCompras})` : '2º Compras: Não encontrado';
+      const linkEditalStr = resolved.linkEdital ? `[3º Edital/PNCP](${resolved.linkEdital})` : '3º Edital: Não encontrado';
+      const linksCombined = `${linkChamamentoStr} &bull; ${linkComprasStr} &bull; ${linkEditalStr}`;
 
       lines.push(`| ${muniUf} | ${edital} | ${ano} | ${objeto} | ${emprestimo} | ${cartao} | ${status} | ${prazoCred} | ${bancos} | ${averbacao} | ${margem} | ${prazoMax} | ${taxa} | ${doc} | ${contato} | ${linksCombined} |`);
 

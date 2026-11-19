@@ -1,9 +1,9 @@
-import { listEditais } from '../db/database.js';
+import { listEditais, resolveProcessLinks } from '../db/database.js';
 
 export function generateCsvReport(filters?: { uf?: string; regiao?: string; somente_chamamento?: boolean }): string {
   const editais = listEditais(filters);
 
-  // 16 Colunas de Negócio Oficiais do Departamento
+  // 16 Colunas de Negócio Oficiais do Departamento com Hierarquia de Links
   const headers = [
     'MUNICIPIO',
     'EDITAL',
@@ -20,8 +20,9 @@ export function generateCsvReport(filters?: { uf?: string; regiao?: string; some
     'TAXA_LIMITACAO',
     'DOCUMENTACAO',
     'CONTATO',
-    'LINK_DO_EDITAL',
-    'PORTAL_PREFEITURA'
+    '1º_CHAMAMENTO_PUBLICO_DOC_DIRETO',
+    '2º_PORTAL_COMPRAS_PUBLICAS',
+    '3º_EDITAL_PNCP'
   ];
 
   const escapeCsv = (val: string | number | undefined | null) => {
@@ -30,25 +31,29 @@ export function generateCsvReport(filters?: { uf?: string; regiao?: string; some
     return `"${str}"`;
   };
 
-  const rows = editais.map(e => [
-    escapeCsv(`${e.municipio}/${e.uf}`),
-    escapeCsv(e.numero_edital),
-    escapeCsv(e.ano),
-    escapeCsv(e.objeto),
-    escapeCsv(e.tem_emprestimo),
-    escapeCsv(e.tipo_cartao),
-    escapeCsv(e.situacao),
-    escapeCsv(e.prazo_credenciamento || e.data_encerramento),
-    escapeCsv(e.bancos_credenciados),
-    escapeCsv(e.sistema_averbacao),
-    escapeCsv(e.margem_consignavel),
-    escapeCsv(e.prazo_maximo),
-    escapeCsv(e.taxa_limitacao),
-    escapeCsv(e.documentacao_exigida),
-    escapeCsv(e.contato_orgao || e.orgao),
-    escapeCsv(e.link_fonte || e.link_edital),
-    escapeCsv(e.portal_prefeitura_url || ''),
-  ].join(';'));
+  const rows = editais.map(e => {
+    const links = resolveProcessLinks(e);
+    return [
+      escapeCsv(`${e.municipio}/${e.uf}`),
+      escapeCsv(e.numero_edital),
+      escapeCsv(e.ano),
+      escapeCsv(e.objeto),
+      escapeCsv(e.tem_emprestimo),
+      escapeCsv(e.tipo_cartao),
+      escapeCsv(e.situacao),
+      escapeCsv(e.prazo_credenciamento || e.data_encerramento),
+      escapeCsv(e.bancos_credenciados),
+      escapeCsv(e.sistema_averbacao),
+      escapeCsv(e.margem_consignavel),
+      escapeCsv(e.prazo_maximo),
+      escapeCsv(e.taxa_limitacao),
+      escapeCsv(e.documentacao_exigida),
+      escapeCsv(e.contato_orgao || e.orgao),
+      escapeCsv(links.linkChamamento || 'Não encontrado'),
+      escapeCsv(links.linkPortalCompras || 'Não encontrado'),
+      escapeCsv(links.linkEdital || 'Não encontrado'),
+    ].join(';');
+  });
 
   // UTF-8 BOM para abrir perfeitamente no Excel
   return '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');

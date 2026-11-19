@@ -185,6 +185,89 @@ export function cleanFalsePositivesFromDb() {
   }
 }
 
+export async function fetchPncpDirectDocumentUrl(
+  cnpj: string,
+  ano: number | string,
+  seq: number | string
+): Promise<{ docUrl: string | null; docTitle: string | null }> {
+  try {
+    const cleanCnpj = String(cnpj || '').replace(/[^0-9]/g, '');
+    const cleanAno = String(ano || '').replace(/[^0-9]/g, '');
+    const cleanSeq = String(seq || '').replace(/[^0-9]/g, '');
+    if (!cleanCnpj || !cleanAno || !cleanSeq) {
+      return { docUrl: null, docTitle: null };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(
+      `https://pncp.gov.br/api/pncp/v1/orgaos/${cleanCnpj}/compras/${cleanAno}/${cleanSeq}/arquivos`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConsignadoCollector/1.0',
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+
+    if (!res.ok) return { docUrl: null, docTitle: null };
+    const text = await res.text();
+    if (!text || !text.trim().startsWith('[')) return { docUrl: null, docTitle: null };
+
+    const files = JSON.parse(text) as Array<{
+      url?: string;
+      uri?: string;
+      titulo?: string;
+      tipoDocumentoNome?: string;
+      statusAtivo?: boolean;
+    }>;
+
+    if (!Array.isArray(files) || files.length === 0) {
+      return { docUrl: null, docTitle: null };
+    }
+
+    const activeFiles = files.filter(f => f.statusAtivo !== false);
+    const candidateList = activeFiles.length > 0 ? activeFiles : files;
+
+    // Prioridade 1: Arquivo cujo título ou tipo mencione chamamento, aviso ou credenciamento
+    const chamamentoFile = candidateList.find(f => {
+      const name = `${f.titulo || ''} ${f.tipoDocumentoNome || ''}`.toLowerCase();
+      return name.includes('aviso') || name.includes('chamamento') || name.includes('credenciamento');
+    });
+
+    if (chamamentoFile && (chamamentoFile.url || chamamentoFile.uri)) {
+      return {
+        docUrl: chamamentoFile.url || chamamentoFile.uri || null,
+        docTitle: chamamentoFile.titulo || chamamentoFile.tipoDocumentoNome || 'Documento do Chamamento',
+      };
+    }
+
+    // Prioridade 2: Edital ou Termo de Referência
+    const editalFile = candidateList.find(f => {
+      const name = `${f.titulo || ''} ${f.tipoDocumentoNome || ''}`.toLowerCase();
+      return name.includes('edital') || name.includes('termo de referencia') || name.includes('tr');
+    });
+
+    if (editalFile && (editalFile.url || editalFile.uri)) {
+      return {
+        docUrl: editalFile.url || editalFile.uri || null,
+        docTitle: editalFile.titulo || editalFile.tipoDocumentoNome || 'Edital / Termo de Referência',
+      };
+    }
+
+    // Fallback: primeiro arquivo válido
+    const first = candidateList[0];
+    return {
+      docUrl: first.url || first.uri || null,
+      docTitle: first.titulo || first.tipoDocumentoNome || 'Arquivo Oficial',
+    };
+  } catch {
+    return { docUrl: null, docTitle: null };
+  }
+}
+
 export async function runPncpSync(targetUfs?: string[]): Promise<{ totalFound: number; newItems: number; updatedItems: number }> {
   cleanFalsePositivesFromDb();
 
@@ -258,6 +341,17 @@ export async function runPncpSync(targetUfs?: string[]): Promise<{ totalFound: n
 
           const defaultPortal = getDefaultPrefeituraUrls(municipio, uf);
 
+          // 1º Grau: Chamamento Público (Documento Direto)
+          const docInfo = await fetchPncpDirectDocumentUrl(cnpj, ano, seq);
+
+          // 2º Grau: Portal de Compras Públicas / Prefeitura
+          const portalCompras = (item.linkSistemaOrigem && !item.linkSistemaOrigem.includes('pncp.gov.br/app/editais'))
+            ? item.linkSistemaOrigem
+            : (defaultPortal.licitacoes_url || defaultPortal.portal_url || null);
+
+          // 3º Grau: Edital / PNCP
+          const linkEditalPncp = linkOficial;
+
           const result = upsertEdital({
             id,
             numero_edital: item.numeroCompra || `${seq}/${ano}`,
@@ -283,7 +377,9 @@ export async function runPncpSync(targetUfs?: string[]): Promise<{ totalFound: n
             contato_orgao: analysis.contato_orgao,
             situacao,
             link_fonte: item.linkSistemaOrigem || linkOficial,
-            link_edital: linkOficial,
+            link_edital: linkEditalPncp,
+            link_chamamento: docInfo.docUrl,
+            link_portal_compras: portalCompras,
             portal_prefeitura_url: defaultPortal.portal_url,
             origem: 'PNCP (Portal Nacional de Contratações Públicas)',
           });
@@ -347,6 +443,17 @@ export async function runPncpSync(targetUfs?: string[]): Promise<{ totalFound: n
 
             const defaultPortal = getDefaultPrefeituraUrls(municipio, uf);
 
+            // 1º Grau: Chamamento Público (Documento Direto)
+            const docInfo = await fetchPncpDirectDocumentUrl(cnpj, ano, seq);
+
+            // 2º Grau: Portal de Compras Públicas / Prefeitura
+            const portalCompras = (item.linkSistemaOrigem && !item.linkSistemaOrigem.includes('pncp.gov.br/app/editais'))
+              ? item.linkSistemaOrigem
+              : (defaultPortal.licitacoes_url || defaultPortal.portal_url || null);
+
+            // 3º Grau: Edital / PNCP
+            const linkEditalPncp = linkOficial;
+
             const result = upsertEdital({
               id,
               numero_edital: item.numeroCompra || `${seq}/${ano}`,
@@ -372,7 +479,9 @@ export async function runPncpSync(targetUfs?: string[]): Promise<{ totalFound: n
               contato_orgao: analysis.contato_orgao,
               situacao,
               link_fonte: item.linkSistemaOrigem || linkOficial,
-              link_edital: linkOficial,
+              link_edital: linkEditalPncp,
+              link_chamamento: docInfo.docUrl,
+              link_portal_compras: portalCompras,
               portal_prefeitura_url: defaultPortal.portal_url,
               origem: 'PNCP (Portal Nacional de Contratações Públicas)',
             });

@@ -159,8 +159,10 @@ export async function runAgmSync(): Promise<{ totalFound: number; newItems: numb
           data_publicacao: card.dataCirculacao,
           data_encerramento: 'fluxo contínuo (aberto)',
           situacao: 'aberto',
+          link_chamamento: card.linkDownload || card.linkMateria,
+          link_portal_compras: `https://www.${municipio.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')}.go.gov.br`,
+          link_edital: card.linkMateria,
           link_fonte: card.linkMateria,
-          link_edital: card.linkDownload,
           origem: 'Diário Oficial dos Municípios (AGM)',
         });
 
