@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BRAZIL_STATES, type BrazilUF } from '../config.js';
@@ -138,6 +139,30 @@ export function getDb(): DatabaseSync {
       status TEXT,
       message TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'admin',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ip TEXT NOT NULL,
+      email TEXT NOT NULL,
+      success INTEGER NOT NULL,
+      attempted_at TEXT NOT NULL
+    );
   `);
 
   // Migrações seguras de colunas caso o banco já existisse
@@ -174,10 +199,46 @@ export function getDb(): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_editais_chamamento ON editais(is_chamamento);
     CREATE INDEX IF NOT EXISTS idx_pref_uf ON prefeituras(uf);
     CREATE INDEX IF NOT EXISTS idx_pref_status ON prefeituras(status_catalogo);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token_exp ON sessions(token, expires_at);
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip, attempted_at);
   `);
+
+  // Semente do superusuário inicial
+  seedSuperuser(db);
 
   dbInstance = db;
   return db;
+}
+
+/**
+ * Garante a criação do superusuário inicial caso não exista,
+ * com hash scrypt criptograficamente seguro e salt individual.
+ */
+function seedSuperuser(db: DatabaseSync): void {
+  const superuserEmail = 'rodrigo.pwn@gmail.com';
+  const superuserPass = '$irius4lphA2027';
+
+  try {
+    const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
+    const existing = checkStmt.get(superuserEmail);
+
+    if (!existing) {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const derivedKey = crypto.scryptSync(superuserPass, salt, 64);
+      const hash = `${salt}:${derivedKey.toString('hex')}`;
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      db.prepare(`
+        INSERT INTO users (id, email, password_hash, role, created_at)
+        VALUES (?, ?, ?, 'admin', ?)
+      `).run(id, superuserEmail, hash, now);
+      console.log(`[AUTH] Superusuário ${superuserEmail} registrado com sucesso.`);
+    }
+  } catch (err) {
+    console.error('[AUTH] Erro ao verificar/criar superusuário:', err);
+  }
 }
 
 export function upsertEdital(item: Partial<Edital> & Pick<Edital, 'id' | 'objeto' | 'orgao' | 'uf' | 'link_fonte'>): { isNew: boolean; isUpdated: boolean } {
