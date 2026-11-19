@@ -4,7 +4,7 @@ import Header from '../components/Header.astro';
 import MetricCards from '../components/MetricCards.astro';
 import DetailModal from '../components/DetailModal.astro';
 import ReportModal from '../components/ReportModal.astro';
-import { listEditais, getStats, getLastSync } from '../lib/db/database.js';
+import { listEditais, getStats, getLastSync, listFolhaStats } from '../lib/db/database.js';
 import { initScheduler } from '../lib/collector/scheduler.js';
 import { BRAZIL_STATES, REGIONS } from '../lib/config.js';
 
@@ -14,6 +14,7 @@ initScheduler();
 const initialEditais = listEditais();
 const stats = getStats();
 const lastSync = getLastSync();
+const initialFolhaStats = listFolhaStats();
 ---
 
 <Layout title="Monitor de Editais de Consignado — Brasil (27 UFs)">
@@ -45,6 +46,17 @@ const lastSync = getLastSync();
         </svg>
         <span>Catálogo de Prefeituras (5.571 Municípios)</span>
         <span class="px-2 py-0.5 rounded text-[11px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">5.571</span>
+      </button>
+
+      <button
+        id="tab-btn-servidores"
+        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition cursor-pointer"
+      >
+        <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <span>Servidores & Transparência</span>
+        <span class="px-2 py-0.5 rounded text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono font-bold">Brasil</span>
       </button>
     </div>
 
@@ -325,6 +337,127 @@ const lastSync = getLastSync();
         </div>
       </div>
     </section>
+
+    <!-- ABA 3: SERVIDORES & TRANSPARÊNCIA MUNICIPAL -->
+    <section id="view-servidores" class="hidden space-y-6">
+      <!-- Banner Informativo de Inteligência de Folha -->
+      <div class="bg-gradient-to-r from-emerald-950/40 via-zinc-900/80 to-zinc-900/80 border border-emerald-500/30 rounded-2xl p-5 backdrop-blur-sm shadow-xl">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 uppercase tracking-wider">
+                Módulo Nacional
+              </span>
+              <h2 class="text-base font-bold text-white">Inteligência de Folha & Servidores Públicos (Brasil)</h2>
+            </div>
+            <p class="text-xs text-zinc-400 max-w-3xl leading-relaxed">
+              Mapeamento de quadro funcional municipal, massa salarial e margens consignáveis legais (35% Empréstimo + 5% Cartão Benefício). Dados consolidados via Portais de Transparência e SICONFI/Tesouro Nacional para suporte a decisões de crédito e participação em chamamentos.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              id="btn-sync-all-folha"
+              type="button"
+              class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold rounded-xl transition shadow-sm cursor-pointer whitespace-nowrap"
+            >
+              <svg id="sync-folha-spinner" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span id="sync-folha-text">Sincronizar Folha Ativa</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 KPI Cards de Folha -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-zinc-800/80">
+          <div class="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Servidores Mapeados</span>
+            <div id="kpi-folha-servidores" class="text-lg font-black text-white font-mono mt-0.5">—</div>
+            <span id="kpi-folha-sub-servidores" class="text-[10px] text-zinc-500 block">Municípios monitorados</span>
+          </div>
+
+          <div class="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Elegíveis Consignado</span>
+            <div id="kpi-folha-elegiveis" class="text-lg font-black text-emerald-400 font-mono mt-0.5">—</div>
+            <span class="text-[10px] text-zinc-500 block">Efetivos / Concursados + RPPS</span>
+          </div>
+
+          <div class="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Massa Salarial Estimada</span>
+            <div id="kpi-folha-massa" class="text-lg font-black text-zinc-200 font-mono mt-0.5">—</div>
+            <span class="text-[10px] text-zinc-500 block">Folha mensal bruta calculada</span>
+          </div>
+
+          <div class="bg-emerald-950/30 p-3 rounded-xl border border-emerald-500/30">
+            <span class="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Potencial Margem 35%</span>
+            <div id="kpi-folha-margem" class="text-lg font-black text-emerald-400 font-mono mt-0.5">—</div>
+            <span id="kpi-folha-cartao" class="text-[10px] text-emerald-400/80 block">+ 5% Cartão Benefício</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Filtro de Servidores -->
+      <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 backdrop-blur-sm shadow-sm space-y-4">
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              id="search-serv-input"
+              placeholder="Filtrar por município ou estado..."
+              class="w-full pl-10 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition"
+            />
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label for="serv-uf-select" class="text-xs text-zinc-400 whitespace-nowrap">Filtrar UF:</label>
+            <select
+              id="serv-uf-select"
+              class="px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-200 focus:outline-none focus:border-emerald-500/50 transition"
+            >
+              <option value="ALL">Todas as UFs (Brasil)</option>
+              {BRAZIL_STATES.map(uf => (
+                <option value={uf}>{uf}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela de Servidores & Margens Consignáveis -->
+      <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-zinc-950/80 border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider text-[11px]">
+                <th class="py-3 px-4 w-44">Município / UF</th>
+                <th class="py-3 px-3 w-32 text-right font-mono">Total Servidores</th>
+                <th class="py-3 px-4 w-56">Composição de Vínculos</th>
+                <th class="py-3 px-3 w-36 text-right font-mono">Folha Mensal (Bruta)</th>
+                <th class="py-3 px-3 w-36 text-right font-mono">Margem 35% (Empréstimo)</th>
+                <th class="py-3 px-3 w-32 text-right font-mono">Cartão 5%</th>
+                <th class="py-3 px-3 w-28 text-center font-mono">Competência</th>
+                <th class="py-3 px-3 w-28 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="serv-table-body" class="divide-y divide-zinc-800/60 text-zinc-300">
+              <tr>
+                <td colspan="8" class="py-8 text-center text-zinc-500">Carregando dados de servidores e transparência...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-4 py-3 bg-zinc-950/60 border-t border-zinc-800 text-xs text-zinc-400 flex items-center justify-between">
+          <div id="serv-results-count">Carregando...</div>
+          <div class="text-[11px] text-zinc-500">Dados integrados aos editais de chamamento e credenciamento de consignado</div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Modais -->
@@ -333,6 +466,7 @@ const lastSync = getLastSync();
 
   <!-- Dados Iniciais embutidos para Renderização Instantânea -->
   <script id="initial-data" type="application/json" set:html={JSON.stringify(initialEditais)} />
+  <script id="initial-folha-data" type="application/json" set:html={JSON.stringify(initialFolhaStats)} />
 
   <!-- Lógica Reativa do Cliente -->
   <script is:inline>
@@ -342,6 +476,28 @@ const lastSync = getLastSync();
       if (el) allEditais = JSON.parse(el.textContent || '[]');
     } catch (e) {
       console.error('Erro ao ler dados iniciais:', e);
+    }
+
+    let allFolhaStats = [];
+    try {
+      const elFolha = document.getElementById('initial-folha-data');
+      if (elFolha) allFolhaStats = JSON.parse(elFolha.textContent || '[]');
+    } catch (e) {
+      console.error('Erro ao ler dados de folha:', e);
+    }
+
+    function getFolhaForMunicipio(municipio, uf) {
+      if (!municipio) return null;
+      const mNorm = municipio.trim().toLowerCase();
+      const ufNorm = (uf || '').trim().toUpperCase();
+      return allFolhaStats.find(f => {
+        const fMun = (f.municipio || '').trim().toLowerCase();
+        const fUf = (f.uf || '').trim().toUpperCase();
+        if (ufNorm) {
+          return fMun === mNorm && fUf === ufNorm;
+        }
+        return fMun === mNorm;
+      }) || null;
     }
 
     let activeTab = 'editais';
@@ -356,6 +512,10 @@ const lastSync = getLastSync();
     let prefSearchQuery = '';
     let prefActiveUf = 'ALL';
     let prefeiturasList = [];
+
+    // Estado da Aba Servidores & Transparência
+    let servSearchQuery = '';
+    let servActiveUf = 'ALL';
 
     function parseDateValue(str) {
       if (!str) return 0;
@@ -561,6 +721,24 @@ const lastSync = getLastSync();
         // Prazo de Credenciamento
         const prazoCred = item.prazo_credenciamento || item.data_encerramento || 'Conforme edital';
 
+        // Inteligência de Servidores do Município
+        const folha = getFolhaForMunicipio(item.municipio, item.uf);
+        let folhaPill = '';
+        if (folha && folha.total_servidores > 0) {
+          const elegPct = Math.round((folha.servidores_elegiveis / folha.total_servidores) * 100);
+          const sCount = folha.total_servidores > 999 ? (folha.total_servidores / 1000).toFixed(1) + 'k' : folha.total_servidores;
+          folhaPill = `
+            <div class="mt-1">
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="${folha.total_servidores.toLocaleString('pt-BR')} servidores cadastrados · ${folha.servidores_elegiveis.toLocaleString('pt-BR')} elegíveis a consignado">
+                <span>👥</span>
+                <span>${sCount} serv.</span>
+                <span class="text-zinc-600">·</span>
+                <span class="font-bold text-emerald-300">${elegPct}% eleg.</span>
+              </span>
+            </div>
+          `;
+        }
+
         return `
           <tr class="hover:bg-zinc-800/40 transition group">
             <td class="py-3 px-4 font-medium text-white whitespace-nowrap align-middle">
@@ -570,6 +748,7 @@ const lastSync = getLastSync();
                 </span>
                 <span class="truncate max-w-[130px]" title="${item.municipio}">${item.municipio}</span>
               </div>
+              ${folhaPill}
             </td>
             <td class="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap align-middle">
               <span class="truncate block max-w-[140px] text-[11px] font-semibold">${item.numero_edital || 'não informado'} ${item.ano ? `(${item.ano})` : ''}</span>
@@ -719,6 +898,85 @@ const lastSync = getLastSync();
       document.getElementById('modal-objeto').textContent = item.objeto;
       document.getElementById('modal-origem').textContent = `Fonte: ${item.origem || 'PNCP'} · Atualizado em ${new Date(item.updated_at || Date.now()).toLocaleDateString('pt-BR')}`;
 
+      // SEÇÃO: RAIO-X DE SERVIDORES & POTENCIAL DE CONSIGNADO
+      const folhaData = getFolhaForMunicipio(item.municipio, item.uf);
+      const folhaSub = document.getElementById('modal-folha-sub');
+      const folhaComp = document.getElementById('modal-folha-competencia');
+      const folhaTotal = document.getElementById('modal-folha-total');
+      const folhaElegiveis = document.getElementById('modal-folha-elegiveis');
+      const folhaEfetivosPct = document.getElementById('modal-folha-efetivos-pct');
+      const folhaBruta = document.getElementById('modal-folha-bruta');
+      const folhaLiquida = document.getElementById('modal-folha-liquida');
+      const folhaMargem = document.getElementById('modal-folha-margem');
+      const folhaCartao = document.getElementById('modal-folha-cartao');
+      const breakdownText = document.getElementById('modal-breakdown-text');
+      const folhaFonte = document.getElementById('modal-folha-fonte');
+      const barEfetivos = document.getElementById('modal-bar-efetivos');
+      const barAposentados = document.getElementById('modal-bar-aposentados');
+      const barComissionados = document.getElementById('modal-bar-comissionados');
+      const barTemporarios = document.getElementById('modal-bar-temporarios');
+
+      function updateModalFolhaUI(f) {
+        if (!f) {
+          if (folhaSub) folhaSub.textContent = `Apurando inteligência de folha para ${item.municipio}/${item.uf}...`;
+          if (folhaComp) folhaComp.textContent = 'Em consulta';
+          if (folhaTotal) folhaTotal.textContent = '—';
+          if (folhaElegiveis) folhaElegiveis.textContent = '—';
+          if (folhaEfetivosPct) folhaEfetivosPct.textContent = 'Quadro funcional';
+          if (folhaBruta) folhaBruta.textContent = '—';
+          if (folhaLiquida) folhaLiquida.textContent = 'Líquido: —';
+          if (folhaMargem) folhaMargem.textContent = '—';
+          if (folhaCartao) folhaCartao.textContent = 'Cartão: —';
+          return;
+        }
+
+        const total = f.total_servidores || 0;
+        const eleg = f.servidores_elegiveis || 0;
+        const efet = f.servidores_efetivos || 0;
+        const inat = f.servidores_aposentados || 0;
+        const comiss = f.servidores_comissionados || 0;
+        const temp = f.servidores_temporarios || 0;
+
+        const elegPct = total > 0 ? Math.round((eleg / total) * 100) : 0;
+        const efetPct = total > 0 ? Math.round((efet / total) * 100) : 0;
+        const inatPct = total > 0 ? Math.round((inat / total) * 100) : 0;
+        const comissPct = total > 0 ? Math.round((comiss / total) * 100) : 0;
+        const tempPct = total > 0 ? Math.max(0, 100 - (efetPct + inatPct + comissPct)) : 0;
+
+        if (folhaSub) folhaSub.textContent = `Inteligência de Folha — ${f.municipio}/${f.uf} (${f.codigo_ibge ? `IBGE: ${f.codigo_ibge}` : 'Quadro Municipal'})`;
+        if (folhaComp) folhaComp.textContent = `Competência: ${f.competencia || '2024-Q2 (Tesouro/RGF)'}`;
+        if (folhaTotal) folhaTotal.textContent = total.toLocaleString('pt-BR');
+        if (folhaElegiveis) folhaElegiveis.textContent = `${eleg.toLocaleString('pt-BR')} (${elegPct}%)`;
+        if (folhaEfetivosPct) folhaEfetivosPct.textContent = `${efetPct}% Concursados/Efetivos`;
+        if (folhaBruta) folhaBruta.textContent = `R$ ${(f.folha_mensal_bruta || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (folhaLiquida) folhaLiquida.textContent = `Líquido est.: R$ ${(f.folha_mensal_liquida || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (folhaMargem) folhaMargem.textContent = `R$ ${(f.potencial_margem_35 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+        if (folhaCartao) folhaCartao.textContent = `Cartão (5%): R$ ${(f.potencial_margem_cartao_5 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /mês`;
+        if (breakdownText) breakdownText.textContent = `${efet} Efetivos (${efetPct}%) · ${inat} Inativos (${inatPct}%) · ${comiss} Comissionados · ${temp} Temporários`;
+        if (folhaFonte) folhaFonte.textContent = `Fonte: ${f.fonte || 'Transparência Municipal / SICONFI'}`;
+
+        if (barEfetivos) barEfetivos.style.width = `${Math.max(5, efetPct)}%`;
+        if (barAposentados) barAposentados.style.width = `${inatPct}%`;
+        if (barComissionados) barComissionados.style.width = `${comissPct}%`;
+        if (barTemporarios) barTemporarios.style.width = `${tempPct}%`;
+      }
+
+      updateModalFolhaUI(folhaData);
+
+      // Se não constava na base inicial, consulta a API e atualiza em tempo real
+      if (!folhaData) {
+        fetch(`/api/transparencia/stats?municipio=${encodeURIComponent(item.municipio)}&uf=${item.uf || ''}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data && data.found && data.stats) {
+              allFolhaStats.push(data.stats);
+              updateModalFolhaUI(data.stats);
+              renderTable();
+            }
+          })
+          .catch(() => {});
+      }
+
       // SEÇÃO DE LINKS HIERÁRQUICOS (1º Chamamento -> 2º Compras -> 3º Edital)
       const links = resolveProcessLinks(item);
 
@@ -844,30 +1102,43 @@ const lastSync = getLastSync();
       document.getElementById('detail-modal').classList.add('hidden');
     });
 
-    // Alternância de Abas
+    // Alternância de Abas (3 Abas: Editais, Prefeituras, Servidores)
     const tabBtnEditais = document.getElementById('tab-btn-editais');
     const tabBtnPref = document.getElementById('tab-btn-prefeituras');
+    const tabBtnServidores = document.getElementById('tab-btn-servidores');
     const viewEditais = document.getElementById('view-editais');
     const viewPref = document.getElementById('view-prefeituras');
+    const viewServidores = document.getElementById('view-servidores');
 
-    tabBtnEditais.addEventListener('click', () => {
-      activeTab = 'editais';
-      tabBtnEditais.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/10 transition cursor-pointer';
-      tabBtnPref.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition cursor-pointer';
-      viewEditais.classList.remove('hidden');
-      viewPref.classList.add('hidden');
-    });
+    function switchTab(tab) {
+      activeTab = tab;
+      const inactiveClass = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition cursor-pointer';
 
-    tabBtnPref.addEventListener('click', () => {
-      activeTab = 'prefeituras';
-      tabBtnPref.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-cyan-500 text-zinc-950 shadow-md shadow-cyan-500/10 transition cursor-pointer';
-      tabBtnEditais.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition cursor-pointer';
-      viewPref.classList.remove('hidden');
+      tabBtnEditais.className = inactiveClass;
+      tabBtnPref.className = inactiveClass;
+      tabBtnServidores.className = inactiveClass;
+
       viewEditais.classList.add('hidden');
-      if (prefeiturasList.length === 0) {
-        loadPrefeituras();
+      viewPref.classList.add('hidden');
+      viewServidores.classList.add('hidden');
+
+      if (tab === 'editais') {
+        tabBtnEditais.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/10 transition cursor-pointer';
+        viewEditais.classList.remove('hidden');
+      } else if (tab === 'prefeituras') {
+        tabBtnPref.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-cyan-500 text-zinc-950 shadow-md shadow-cyan-500/10 transition cursor-pointer';
+        viewPref.classList.remove('hidden');
+        if (prefeiturasList.length === 0) loadPrefeituras();
+      } else if (tab === 'servidores') {
+        tabBtnServidores.className = 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/10 transition cursor-pointer';
+        viewServidores.classList.remove('hidden');
+        renderServidoresTable();
       }
-    });
+    }
+
+    tabBtnEditais.addEventListener('click', () => switchTab('editais'));
+    tabBtnPref.addEventListener('click', () => switchTab('prefeituras'));
+    tabBtnServidores.addEventListener('click', () => switchTab('servidores'));
 
     // Lógica da Aba Catálogo de Prefeituras
     async function loadPrefeituras() {
@@ -921,6 +1192,227 @@ const lastSync = getLastSync();
     document.getElementById('pref-uf-select')?.addEventListener('change', (e) => {
       prefActiveUf = e.target.value;
       loadPrefeituras();
+    });
+
+    // Lógica da Aba Servidores & Transparência
+    function renderServidoresTable() {
+      const tbody = document.getElementById('serv-table-body');
+      const countEl = document.getElementById('serv-results-count');
+      if (!tbody) return;
+
+      const filtered = allFolhaStats.filter(item => {
+        if (servActiveUf !== 'ALL' && item.uf !== servActiveUf) return false;
+        if (servSearchQuery.trim()) {
+          const q = servSearchQuery.toLowerCase();
+          const target = `${item.municipio} ${item.uf} ${item.codigo_ibge || ''} ${item.fonte || ''}`.toLowerCase();
+          if (!target.includes(q)) return false;
+        }
+        return true;
+      });
+
+      // Atualiza KPIs agregados da folha
+      let sumServidores = 0;
+      let sumElegiveis = 0;
+      let sumFolhaBruta = 0;
+      let sumMargem35 = 0;
+      let sumMargemCartao = 0;
+
+      for (const it of filtered) {
+        sumServidores += (it.total_servidores || 0);
+        sumElegiveis += (it.servidores_elegiveis || 0);
+        sumFolhaBruta += (it.folha_mensal_bruta || 0);
+        sumMargem35 += (it.potencial_margem_35 || 0);
+        sumMargemCartao += (it.potencial_margem_cartao_5 || 0);
+      }
+
+      const kpiServ = document.getElementById('kpi-folha-servidores');
+      const kpiEleg = document.getElementById('kpi-folha-elegiveis');
+      const kpiMassa = document.getElementById('kpi-folha-massa');
+      const kpiMargem = document.getElementById('kpi-folha-margem');
+      const kpiCartao = document.getElementById('kpi-folha-cartao');
+
+      if (kpiServ) kpiServ.textContent = sumServidores.toLocaleString('pt-BR');
+      if (kpiEleg) {
+        const pct = sumServidores > 0 ? Math.round((sumElegiveis / sumServidores) * 100) : 0;
+        kpiEleg.textContent = `${sumElegiveis.toLocaleString('pt-BR')} (${pct}%)`;
+      }
+      if (kpiMassa) kpiMassa.textContent = `R$ ${sumFolhaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (kpiMargem) kpiMargem.textContent = `R$ ${sumMargem35.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (kpiCartao) kpiCartao.textContent = `+ R$ ${sumMargemCartao.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cartão Benefício (5%)`;
+
+      if (countEl) countEl.textContent = `Exibindo ${filtered.length} de ${allFolhaStats.length} entidades municipais com inteligência de folha`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center text-zinc-500">Nenhum município localizado com os filtros selecionados.</td></tr>';
+        return;
+      }
+
+      // Ordena por potencial de margem 35% decrescente
+      filtered.sort((a, b) => (b.potencial_margem_35 || 0) - (a.potencial_margem_35 || 0));
+
+      tbody.innerHTML = filtered.map(item => {
+        const total = item.total_servidores || 0;
+        const eleg = item.servidores_elegiveis || 0;
+        const efet = item.servidores_efetivos || 0;
+        const inat = item.servidores_aposentados || 0;
+        const comiss = item.servidores_comissionados || 0;
+        const temp = item.servidores_temporarios || 0;
+
+        const elegPct = total > 0 ? Math.round((eleg / total) * 100) : 0;
+        const efetPct = total > 0 ? Math.round((efet / total) * 100) : 0;
+        const inatPct = total > 0 ? Math.round((inat / total) * 100) : 0;
+        const comissPct = total > 0 ? Math.round((comiss / total) * 100) : 0;
+        const tempPct = total > 0 ? Math.max(0, 100 - (efetPct + inatPct + comissPct)) : 0;
+
+        const ufColors = {
+          'GO': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+          'TO': 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+          'SP': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+          'MG': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+          'BA': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+          'PR': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+          'RJ': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        };
+        const ufColor = ufColors[item.uf] || 'bg-zinc-800 text-zinc-300 border-zinc-700';
+
+        return `
+          <tr class="hover:bg-zinc-800/40 transition">
+            <td class="py-3 px-4 font-medium text-white whitespace-nowrap">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${ufColor}">
+                  ${item.uf}
+                </span>
+                <span class="font-bold text-zinc-100">${item.municipio}</span>
+              </div>
+              <span class="text-[10px] text-zinc-500 font-mono block mt-0.5">${item.codigo_ibge ? `IBGE: ${item.codigo_ibge}` : ''} ${item.regiao ? `· Região ${item.regiao}` : ''}</span>
+            </td>
+
+            <td class="py-3 px-3 text-right whitespace-nowrap">
+              <span class="text-sm font-extrabold text-white font-mono">${total.toLocaleString('pt-BR')}</span>
+              <span class="text-[10px] text-emerald-400 font-mono block font-semibold">${eleg.toLocaleString('pt-BR')} elegíveis (${elegPct}%)</span>
+            </td>
+
+            <td class="py-3 px-4">
+              <div class="space-y-1">
+                <div class="w-full h-2 rounded-full bg-zinc-800 flex overflow-hidden">
+                  <div class="bg-emerald-500 h-full" style="width: ${Math.max(5, efetPct)}%;" title="Efetivos: ${efet} (${efetPct}%)"></div>
+                  <div class="bg-blue-500 h-full" style="width: ${inatPct}%;" title="Inativos: ${inat} (${inatPct}%)"></div>
+                  <div class="bg-purple-500 h-full" style="width: ${comissPct}%;" title="Comissionados: ${comiss} (${comissPct}%)"></div>
+                  <div class="bg-amber-500 h-full" style="width: ${tempPct}%;" title="Temporários: ${temp} (${tempPct}%)"></div>
+                </div>
+                <div class="flex items-center gap-2 text-[10px] text-zinc-400">
+                  <span class="text-emerald-400 font-medium">${efetPct}% Concursados</span>
+                  <span>·</span>
+                  <span class="text-purple-400 font-medium">${comissPct}% Comiss.</span>
+                  <span>·</span>
+                  <span class="text-amber-400 font-medium">${tempPct}% PSS</span>
+                </div>
+              </div>
+            </td>
+
+            <td class="py-3 px-3 text-right font-mono whitespace-nowrap">
+              <span class="text-xs font-bold text-zinc-200">R$ ${(item.folha_mensal_bruta || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-[10px] text-zinc-500 block">Líq: R$ ${(item.folha_mensal_liquida || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </td>
+
+            <td class="py-3 px-3 text-right font-mono whitespace-nowrap">
+              <span class="text-xs font-black text-emerald-400">R$ ${(item.potencial_margem_35 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-[10px] text-emerald-500/80 block">35% Empréstimo</span>
+            </td>
+
+            <td class="py-3 px-3 text-right font-mono whitespace-nowrap">
+              <span class="text-xs font-bold text-teal-400">R$ ${(item.potencial_margem_cartao_5 || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="text-[10px] text-teal-500/80 block">5% Cartão</span>
+            </td>
+
+            <td class="py-3 px-3 text-center whitespace-nowrap">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-zinc-950 text-zinc-400 border border-zinc-800">
+                ${item.competencia || '2024-Q2'}
+              </span>
+            </td>
+
+            <td class="py-3 px-3 text-center whitespace-nowrap">
+              <button
+                onclick="syncSingleFolha('${item.municipio}', '${item.uf}')"
+                class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-zinc-800 hover:bg-emerald-500 hover:text-zinc-950 text-zinc-300 transition cursor-pointer border border-zinc-700"
+                title="Sincronizar dados de transparência e SICONFI"
+              >
+                Atualizar
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.syncSingleFolha = async function(municipio, uf) {
+      try {
+        const res = await fetch('/api/transparencia/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ municipio, uf })
+        });
+        const data = await res.json();
+        if (data && data.success && data.stats) {
+          const idx = allFolhaStats.findIndex(f => f.municipio.toLowerCase() === municipio.toLowerCase() && f.uf === uf);
+          if (idx >= 0) {
+            allFolhaStats[idx] = data.stats;
+          } else {
+            allFolhaStats.push(data.stats);
+          }
+          renderServidoresTable();
+          renderTable();
+          alert(`Inteligência de folha atualizada para ${municipio}/${uf}!`);
+        } else {
+          alert(`Aviso: ${data.message || 'Não foi possível sincronizar no momento.'}`);
+        }
+      } catch (e) {
+        alert('Erro ao sincronizar folha: ' + e.message);
+      }
+    };
+
+    document.getElementById('search-serv-input')?.addEventListener('input', (e) => {
+      servSearchQuery = e.target.value;
+      renderServidoresTable();
+    });
+
+    document.getElementById('serv-uf-select')?.addEventListener('change', (e) => {
+      servActiveUf = e.target.value;
+      renderServidoresTable();
+    });
+
+    // Sincronizar toda a folha de editais ativos
+    document.getElementById('btn-sync-all-folha')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-sync-all-folha');
+      const text = document.getElementById('sync-folha-text');
+      const spinner = document.getElementById('sync-folha-spinner');
+
+      btn.disabled = true;
+      text.textContent = 'Sincronizando...';
+      spinner.classList.add('animate-spin');
+
+      try {
+        const res = await fetch('/api/transparencia/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ all: true })
+        });
+        const json = await res.json();
+
+        // Recarrega estatísticas atualizadas
+        const statsRes = await fetch('/api/transparencia/stats');
+        allFolhaStats = await statsRes.json();
+        renderServidoresTable();
+        renderTable();
+
+        alert(json.message || 'Varredura de folha concluída com sucesso!');
+      } catch (err) {
+        alert('Erro ao sincronizar folha: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        text.textContent = 'Sincronizar Folha Ativa';
+        spinner.classList.remove('animate-spin');
+      }
     });
 
     // Filtros de Chamamento

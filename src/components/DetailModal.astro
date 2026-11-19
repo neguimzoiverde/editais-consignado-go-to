@@ -120,6 +120,71 @@
         <div id="modal-objeto" class="text-zinc-300 bg-zinc-950 p-3.5 rounded-xl border border-zinc-800/80 leading-relaxed text-xs"></div>
       </div>
 
+      <!-- SEÇÃO EXCLUSIVA: RAIO-X DE SERVIDORES & POTENCIAL DE CONSIGNADO DA ENTIDADE -->
+      <div id="modal-folha-container" class="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 p-4 rounded-xl border border-emerald-500/30 space-y-3.5 shadow-lg shadow-emerald-950/20">
+        <div class="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
+          <div class="flex items-center gap-2">
+            <div class="h-6 w-6 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs">
+              🏛️
+            </div>
+            <div>
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Raio-X de Servidores & Potencial de Consignado</span>
+              <span id="modal-folha-sub" class="text-[11px] text-zinc-400 block">Inteligência de Folha de Pagamento Municipal</span>
+            </div>
+          </div>
+          <span id="modal-folha-competencia" class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Competência: 2026-10
+          </span>
+        </div>
+
+        <!-- Grid de 4 Métricas de Negócio -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="bg-zinc-950/80 p-2.5 rounded-lg border border-zinc-800">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Total Servidores</span>
+            <div id="modal-folha-total" class="text-base font-extrabold text-white font-mono mt-0.5">—</div>
+            <span id="modal-folha-efetivos-pct" class="text-[10px] text-emerald-400 font-semibold block mt-0.5">85% Concursados</span>
+          </div>
+
+          <div class="bg-zinc-950/80 p-2.5 rounded-lg border border-zinc-800">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Elegíveis Consignado</span>
+            <div id="modal-folha-elegiveis" class="text-base font-extrabold text-emerald-400 font-mono mt-0.5">—</div>
+            <span class="text-[10px] text-zinc-500 block mt-0.5">Efetivos + RPPS</span>
+          </div>
+
+          <div class="bg-zinc-950/80 p-2.5 rounded-lg border border-zinc-800">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Folha Mensal Bruta</span>
+            <div id="modal-folha-bruta" class="text-xs font-bold text-zinc-200 font-mono mt-1">—</div>
+            <span id="modal-folha-liquida" class="text-[10px] text-zinc-500 block mt-0.5">Líquido: —</span>
+          </div>
+
+          <div class="bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-500/40">
+            <span class="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Margem 35% + 5%</span>
+            <div id="modal-folha-margem" class="text-xs font-black text-emerald-400 font-mono mt-1">—</div>
+            <span id="modal-folha-cartao" class="text-[10px] text-emerald-400/80 block mt-0.5">Cartão: —</span>
+          </div>
+        </div>
+
+        <!-- Barra Visual de Distribuição de Vínculos -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px] text-zinc-400">
+            <span>Composição: <span id="modal-breakdown-text" class="text-zinc-200">Efetivos vs Comissionados vs Temporários</span></span>
+            <span id="modal-folha-fonte" class="text-[10px] text-zinc-500">Fonte: Transparência Municipal</span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-zinc-800 flex overflow-hidden">
+            <div id="modal-bar-efetivos" class="bg-emerald-500 h-full" style="width: 75%;" title="Efetivos"></div>
+            <div id="modal-bar-aposentados" class="bg-blue-500 h-full" style="width: 12%;" title="Aposentados/Pensionistas"></div>
+            <div id="modal-bar-comissionados" class="bg-purple-500 h-full" style="width: 9%;" title="Comissionados"></div>
+            <div id="modal-bar-temporarios" class="bg-amber-500 h-full" style="width: 4%;" title="Temporários"></div>
+          </div>
+          <div class="flex items-center gap-3 text-[10px] text-zinc-400 pt-0.5">
+            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Efetivos</span>
+            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Inativos/RPPS</span>
+            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Comissionados</span>
+            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Temporários</span>
+          </div>
+        </div>
+      </div>
+
       <!-- SEÇÃO EXCLUSIVA DE LINKS HIERÁRQUICOS (1º Chamamento -> 2º Compras -> 3º Edital) -->
       <div class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
         <div class="flex items-center justify-between">

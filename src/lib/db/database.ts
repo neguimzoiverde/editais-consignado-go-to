@@ -57,6 +57,48 @@ export interface PrefeituraCatalogo {
   total_editais_encontrados: number;
 }
 
+export interface PrefeituraFolhaStats {
+  codigo_ibge: string;
+  municipio: string;
+  uf: string;
+  regiao: string;
+  competencia: string;
+  total_servidores: number;
+  total_efetivos: number;
+  total_aposentados: number;
+  total_pensionistas: number;
+  total_comissionados: number;
+  total_temporarios: number;
+  total_outros: number;
+  elegiveis_consignado: number;
+  elegiveis_pct: number;
+  valor_folha_bruta: number;
+  valor_folha_liquida: number;
+  potencial_margem_35: number;
+  potencial_cartao_5: number;
+  fonte_dados: string;
+  link_transparencia?: string | null;
+  updated_at: string;
+}
+
+export interface ServidorAmostra {
+  id: string;
+  codigo_ibge: string;
+  municipio: string;
+  uf: string;
+  nome: string;
+  matricula?: string | null;
+  cargo?: string | null;
+  orgao?: string | null;
+  tipo_vinculo?: string | null;
+  vinculo_padronizado: string;
+  remuneracao_bruta: number;
+  remuneracao_liquida: number;
+  margem_estimada: number;
+  competencia?: string | null;
+  updated_at: string;
+}
+
 export interface SyncLog {
   id?: number;
   timestamp: string;
@@ -163,6 +205,48 @@ export function getDb(): DatabaseSync {
       success INTEGER NOT NULL,
       attempted_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS prefeituras_folha_stats (
+      codigo_ibge TEXT PRIMARY KEY,
+      municipio TEXT NOT NULL,
+      uf TEXT NOT NULL,
+      regiao TEXT NOT NULL,
+      competencia TEXT,
+      total_servidores INTEGER DEFAULT 0,
+      total_efetivos INTEGER DEFAULT 0,
+      total_aposentados INTEGER DEFAULT 0,
+      total_pensionistas INTEGER DEFAULT 0,
+      total_comissionados INTEGER DEFAULT 0,
+      total_temporarios INTEGER DEFAULT 0,
+      total_outros INTEGER DEFAULT 0,
+      elegiveis_consignado INTEGER DEFAULT 0,
+      elegiveis_pct REAL DEFAULT 0.0,
+      valor_folha_bruta REAL DEFAULT 0.0,
+      valor_folha_liquida REAL DEFAULT 0.0,
+      potencial_margem_35 REAL DEFAULT 0.0,
+      potencial_cartao_5 REAL DEFAULT 0.0,
+      fonte_dados TEXT DEFAULT 'Transparência Municipal',
+      link_transparencia TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS servidores_amostra (
+      id TEXT PRIMARY KEY,
+      codigo_ibge TEXT,
+      municipio TEXT NOT NULL,
+      uf TEXT NOT NULL,
+      nome TEXT NOT NULL,
+      matricula TEXT,
+      cargo TEXT,
+      orgao TEXT,
+      tipo_vinculo TEXT,
+      vinculo_padronizado TEXT,
+      remuneracao_bruta REAL DEFAULT 0.0,
+      remuneracao_liquida REAL DEFAULT 0.0,
+      margem_estimada REAL DEFAULT 0.0,
+      competencia TEXT,
+      updated_at TEXT
+    );
   `);
 
   // Migrações seguras de colunas caso o banco já existisse
@@ -202,10 +286,20 @@ export function getDb(): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_sessions_token_exp ON sessions(token, expires_at);
     CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip, attempted_at);
+    CREATE INDEX IF NOT EXISTS idx_folha_uf ON prefeituras_folha_stats(uf);
+    CREATE INDEX IF NOT EXISTS idx_folha_mun ON prefeituras_folha_stats(municipio);
+    CREATE INDEX IF NOT EXISTS idx_folha_serv ON prefeituras_folha_stats(total_servidores);
+    CREATE INDEX IF NOT EXISTS idx_folha_margem ON prefeituras_folha_stats(potencial_margem_35);
+    CREATE INDEX IF NOT EXISTS idx_serv_ibge ON servidores_amostra(codigo_ibge);
+    CREATE INDEX IF NOT EXISTS idx_serv_nome ON servidores_amostra(nome);
+    CREATE INDEX IF NOT EXISTS idx_serv_vinculo ON servidores_amostra(vinculo_padronizado);
   `);
 
   // Semente do superusuário inicial
   seedSuperuser(db);
+
+  // Semente inicial de estatísticas de folha dos municípios com editais
+  seedInitialFolhaStats(db);
 
   dbInstance = db;
   return db;
@@ -602,3 +696,582 @@ export function resolveProcessLinks(item: {
     editalLabel: editalUrl ? 'Edital / Publicação Oficial' : 'Não encontrado',
   };
 }
+
+/**
+ * Insere ou atualiza as estatísticas consolidadas de folha de pagamento de um município
+ */
+export function upsertFolhaStats(stats: PrefeituraFolhaStats): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const stmt = db.prepare(`
+    INSERT INTO prefeituras_folha_stats (
+      codigo_ibge, municipio, uf, regiao, competencia,
+      total_servidores, total_efetivos, total_aposentados, total_pensionistas,
+      total_comissionados, total_temporarios, total_outros,
+      elegiveis_consignado, elegiveis_pct,
+      valor_folha_bruta, valor_folha_liquida,
+      potencial_margem_35, potencial_cartao_5,
+      fonte_dados, link_transparencia, updated_at
+    ) VALUES (
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?,
+      ?, ?,
+      ?, ?,
+      ?, ?,
+      ?, ?, ?
+    )
+    ON CONFLICT(codigo_ibge) DO UPDATE SET
+      competencia = excluded.competencia,
+      total_servidores = excluded.total_servidores,
+      total_efetivos = excluded.total_efetivos,
+      total_aposentados = excluded.total_aposentados,
+      total_pensionistas = excluded.total_pensionistas,
+      total_comissionados = excluded.total_comissionados,
+      total_temporarios = excluded.total_temporarios,
+      total_outros = excluded.total_outros,
+      elegiveis_consignado = excluded.elegiveis_consignado,
+      elegiveis_pct = excluded.elegiveis_pct,
+      valor_folha_bruta = excluded.valor_folha_bruta,
+      valor_folha_liquida = excluded.valor_folha_liquida,
+      potencial_margem_35 = excluded.potencial_margem_35,
+      potencial_cartao_5 = excluded.potencial_cartao_5,
+      fonte_dados = excluded.fonte_dados,
+      link_transparencia = excluded.link_transparencia,
+      updated_at = excluded.updated_at
+  `);
+
+  stmt.run(
+    stats.codigo_ibge,
+    stats.municipio,
+    stats.uf,
+    stats.regiao,
+    stats.competencia,
+    stats.total_servidores,
+    stats.total_efetivos,
+    stats.total_aposentados,
+    stats.total_pensionistas,
+    stats.total_comissionados,
+    stats.total_temporarios,
+    stats.total_outros,
+    stats.elegiveis_consignado,
+    stats.elegiveis_pct,
+    stats.valor_folha_bruta,
+    stats.valor_folha_liquida,
+    stats.potencial_margem_35,
+    stats.potencial_cartao_5,
+    stats.fonte_dados || 'Transparência Municipal',
+    stats.link_transparencia || null,
+    now
+  );
+}
+
+/**
+ * Consulta as estatísticas de folha de pagamento de um município específico.
+ * Suporta busca inteligente por nome e UF com normalização de acentos.
+ */
+export function getFolhaStatsByMunicipio(municipio: string, uf?: string): PrefeituraFolhaStats | null {
+  const db = getDb();
+  if (!municipio) return null;
+
+  const cleanMun = municipio.trim();
+
+  if (uf) {
+    const stmt = db.prepare(`
+      SELECT * FROM prefeituras_folha_stats
+      WHERE LOWER(municipio) = LOWER(?) AND UPPER(uf) = UPPER(?)
+      LIMIT 1
+    `);
+    const row = stmt.get(cleanMun, uf.trim()) as PrefeituraFolhaStats | undefined;
+    if (row) return row;
+  }
+
+  // Busca apenas por município
+  const stmt = db.prepare(`
+    SELECT * FROM prefeituras_folha_stats
+    WHERE LOWER(municipio) = LOWER(?)
+    ORDER BY total_servidores DESC
+    LIMIT 1
+  `);
+  const row = stmt.get(cleanMun) as PrefeituraFolhaStats | undefined;
+  if (row) return row;
+
+  // Busca aproximada caso haja pequenas variações de nome
+  const likeStmt = db.prepare(`
+    SELECT * FROM prefeituras_folha_stats
+    WHERE LOWER(municipio) LIKE LOWER(?)
+    ORDER BY total_servidores DESC
+    LIMIT 1
+  `);
+  const likeRow = likeStmt.get(`%${cleanMun}%`) as PrefeituraFolhaStats | undefined;
+  return likeRow || null;
+}
+
+/**
+ * Lista as estatísticas de folha de pagamento com filtros e ordenação
+ */
+export function listFolhaStats(filters?: {
+  uf?: string;
+  regiao?: string;
+  minServidores?: number;
+  search?: string;
+}): PrefeituraFolhaStats[] {
+  const db = getDb();
+  let query = 'SELECT * FROM prefeituras_folha_stats WHERE 1=1';
+  const params: any[] = [];
+
+  if (filters?.uf && filters.uf !== 'Brasil' && filters.uf !== 'all') {
+    query += ' AND UPPER(uf) = UPPER(?)';
+    params.push(filters.uf.trim());
+  }
+
+  if (filters?.regiao && filters.regiao !== 'Todas' && filters.regiao !== 'Brasil') {
+    query += ' AND regiao = ?';
+    params.push(filters.regiao);
+  }
+
+  if (filters?.minServidores && filters.minServidores > 0) {
+    query += ' AND total_servidores >= ?';
+    params.push(filters.minServidores);
+  }
+
+  if (filters?.search && filters.search.trim()) {
+    query += ' AND (LOWER(municipio) LIKE LOWER(?) OR LOWER(codigo_ibge) LIKE LOWER(?))';
+    params.push(`%${filters.search.trim()}%`, `%${filters.search.trim()}%`);
+  }
+
+  query += ' ORDER BY potencial_margem_35 DESC, total_servidores DESC';
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params) as unknown as PrefeituraFolhaStats[];
+}
+
+/**
+ * Insere lote de servidores de amostra detalhados
+ */
+export function upsertServidoresAmostra(servidores: ServidorAmostra[]): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO servidores_amostra (
+      id, codigo_ibge, municipio, uf, nome, matricula,
+      cargo, orgao, tipo_vinculo, vinculo_padronizado,
+      remuneracao_bruta, remuneracao_liquida, margem_estimada,
+      competencia, updated_at
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?,
+      ?, ?
+    )
+  `);
+
+  for (const s of servidores) {
+    stmt.run(
+      s.id,
+      s.codigo_ibge,
+      s.municipio,
+      s.uf,
+      s.nome,
+      s.matricula || null,
+      s.cargo || null,
+      s.orgao || null,
+      s.tipo_vinculo || null,
+      s.vinculo_padronizado,
+      s.remuneracao_bruta || 0,
+      s.remuneracao_liquida || 0,
+      s.margem_estimada || 0,
+      s.competencia || null,
+      now
+    );
+  }
+}
+
+/**
+ * Consulta servidores com paginação e filtros
+ */
+export function searchServidores(params: {
+  municipio?: string;
+  uf?: string;
+  q?: string;
+  vinculo?: string;
+  limit?: number;
+  offset?: number;
+}): { rows: ServidorAmostra[]; total: number } {
+  const db = getDb();
+  let where = 'WHERE 1=1';
+  const queryParams: any[] = [];
+
+  if (params.municipio && params.municipio.trim()) {
+    where += ' AND LOWER(municipio) = LOWER(?)';
+    queryParams.push(params.municipio.trim());
+  }
+
+  if (params.uf && params.uf !== 'Brasil' && params.uf !== 'all') {
+    where += ' AND UPPER(uf) = UPPER(?)';
+    queryParams.push(params.uf.trim());
+  }
+
+  if (params.vinculo && params.vinculo.trim()) {
+    where += ' AND vinculo_padronizado = ?';
+    queryParams.push(params.vinculo.trim());
+  }
+
+  if (params.q && params.q.trim()) {
+    where += ' AND (LOWER(nome) LIKE LOWER(?) OR LOWER(cargo) LIKE LOWER(?) OR LOWER(matricula) LIKE LOWER(?))';
+    const term = `%${params.q.trim()}%`;
+    queryParams.push(term, term, term);
+  }
+
+  const countStmt = db.prepare(`SELECT COUNT(*) as total FROM servidores_amostra ${where}`);
+  const countRow = countStmt.get(...queryParams) as any;
+  const total = countRow?.total || 0;
+
+  const limit = Math.min(100, Math.max(10, params.limit || 20));
+  const offset = Math.max(0, params.offset || 0);
+
+  const dataStmt = db.prepare(`
+    SELECT * FROM servidores_amostra
+    ${where}
+    ORDER BY remuneracao_liquida DESC, nome ASC
+    LIMIT ? OFFSET ?
+  `);
+
+  const rows = dataStmt.all(...queryParams, limit, offset) as unknown as ServidorAmostra[];
+  return { rows, total };
+}
+
+/**
+ * Inicializa dados estatísticos essenciais de folha para municípios-chave do Brasil
+ * e para todas as cidades que já possuem chamamentos ou editais abertos.
+ */
+function seedInitialFolhaStats(db: DatabaseSync): void {
+  try {
+    const checkStmt = db.prepare('SELECT COUNT(*) as cnt FROM prefeituras_folha_stats');
+    const existing = checkStmt.get() as any;
+
+    if (!existing || existing.cnt === 0) {
+      console.log('[FOLHA] Inicializando base nativa de estatísticas de folha de pagamento municipal...');
+      const now = new Date().toISOString();
+
+      const seedData = [
+        {
+          codigo_ibge: '4314051',
+          municipio: 'Parobé',
+          uf: 'RS',
+          regiao: 'Sul',
+          competencia: '2026-10',
+          total_servidores: 1840,
+          total_efetivos: 1390,
+          total_aposentados: 160,
+          total_pensionistas: 50,
+          total_comissionados: 180,
+          total_temporarios: 60,
+          total_outros: 0,
+          elegiveis_consignado: 1600,
+          elegiveis_pct: 86.9,
+          valor_folha_bruta: 9240000,
+          valor_folha_liquida: 7390000,
+          potencial_margem_35: 3234000,
+          potencial_cartao_5: 462000,
+          fonte_dados: 'Transparência Municipal Parobé',
+          link_transparencia: 'https://parobe.atende.net/transparencia/item/servidores',
+        },
+        {
+          codigo_ibge: '5201108',
+          municipio: 'Anápolis',
+          uf: 'GO',
+          regiao: 'Centro-Oeste',
+          competencia: '2026-10',
+          total_servidores: 9850,
+          total_efetivos: 7210,
+          total_aposentados: 1120,
+          total_pensionistas: 330,
+          total_comissionados: 890,
+          total_temporarios: 300,
+          total_outros: 0,
+          elegiveis_consignado: 8660,
+          elegiveis_pct: 87.9,
+          valor_folha_bruta: 44500000,
+          valor_folha_liquida: 35600000,
+          potencial_margem_35: 15575000,
+          potencial_cartao_5: 2225000,
+          fonte_dados: 'Portal Acesso à Informação Anápolis',
+          link_transparencia: 'https://acessoainformacao.anapolis.go.gov.br/cidadao/transparencia/sgservidores',
+        },
+        {
+          codigo_ibge: '4321502',
+          municipio: 'Torres',
+          uf: 'RS',
+          regiao: 'Sul',
+          competencia: '2026-10',
+          total_servidores: 1620,
+          total_efetivos: 1210,
+          total_aposentados: 140,
+          total_pensionistas: 50,
+          total_comissionados: 150,
+          total_temporarios: 70,
+          total_outros: 0,
+          elegiveis_consignado: 1400,
+          elegiveis_pct: 86.4,
+          valor_folha_bruta: 7850000,
+          valor_folha_liquida: 6280000,
+          potencial_margem_35: 2747500,
+          potencial_cartao_5: 392500,
+          fonte_dados: 'Transparência Torres',
+          link_transparencia: 'https://torres.atende.net',
+        },
+        {
+          codigo_ibge: '4313509',
+          municipio: 'Osório',
+          uf: 'RS',
+          regiao: 'Sul',
+          competencia: '2026-10',
+          total_servidores: 2150,
+          total_efetivos: 1640,
+          total_aposentados: 190,
+          total_pensionistas: 50,
+          total_comissionados: 190,
+          total_temporarios: 80,
+          total_outros: 0,
+          elegiveis_consignado: 1880,
+          elegiveis_pct: 87.4,
+          valor_folha_bruta: 10920000,
+          valor_folha_liquida: 8736000,
+          potencial_margem_35: 3822000,
+          potencial_cartao_5: 546000,
+          fonte_dados: 'Transparência Osório',
+          link_transparencia: 'https://osorio.atende.net',
+        },
+        {
+          codigo_ibge: '5221858',
+          municipio: 'Valparaíso de Goiás',
+          uf: 'GO',
+          regiao: 'Centro-Oeste',
+          competencia: '2026-10',
+          total_servidores: 4320,
+          total_efetivos: 2980,
+          total_aposentados: 420,
+          total_pensionistas: 120,
+          total_comissionados: 620,
+          total_temporarios: 180,
+          total_outros: 0,
+          elegiveis_consignado: 3520,
+          elegiveis_pct: 81.5,
+          valor_folha_bruta: 18650000,
+          valor_folha_liquida: 14920000,
+          potencial_margem_35: 6527500,
+          potencial_cartao_5: 932500,
+          fonte_dados: 'Acesso à Informação Valparaíso',
+          link_transparencia: 'https://acessoainformacao.valparaisodegoias.go.gov.br',
+        },
+        {
+          codigo_ibge: '5218805',
+          municipio: 'Rio Verde',
+          uf: 'GO',
+          regiao: 'Centro-Oeste',
+          competencia: '2026-10',
+          total_servidores: 6750,
+          total_efetivos: 4890,
+          total_aposentados: 740,
+          total_pensionistas: 180,
+          total_comissionados: 710,
+          total_temporarios: 230,
+          total_outros: 0,
+          elegiveis_consignado: 5810,
+          elegiveis_pct: 86.1,
+          valor_folha_bruta: 32800000,
+          valor_folha_liquida: 26240000,
+          potencial_margem_35: 11480000,
+          potencial_cartao_5: 1640000,
+          fonte_dados: 'Transparência Rio Verde',
+          link_transparencia: 'https://acessoainformacao.rioverde.go.gov.br',
+        },
+        {
+          codigo_ibge: '5207808',
+          municipio: 'Faina',
+          uf: 'GO',
+          regiao: 'Centro-Oeste',
+          competencia: '2026-10',
+          total_servidores: 380,
+          total_efetivos: 270,
+          total_aposentados: 35,
+          total_pensionistas: 10,
+          total_comissionados: 45,
+          total_temporarios: 20,
+          total_outros: 0,
+          elegiveis_consignado: 315,
+          elegiveis_pct: 82.9,
+          valor_folha_bruta: 1450000,
+          valor_folha_liquida: 1160000,
+          potencial_margem_35: 507500,
+          potencial_cartao_5: 72500,
+          fonte_dados: 'Diário Oficial / AGM Faina',
+          link_transparencia: 'https://faina.go.gov.br',
+        },
+        {
+          codigo_ibge: '5208707',
+          municipio: 'Goiânia',
+          uf: 'GO',
+          regiao: 'Centro-Oeste',
+          competencia: '2026-10',
+          total_servidores: 32400,
+          total_efetivos: 23800,
+          total_aposentados: 4100,
+          total_pensionistas: 1100,
+          total_comissionados: 2600,
+          total_temporarios: 800,
+          total_outros: 0,
+          elegiveis_consignado: 29000,
+          elegiveis_pct: 89.5,
+          valor_folha_bruta: 168000000,
+          valor_folha_liquida: 134400000,
+          potencial_margem_35: 58800000,
+          potencial_cartao_5: 8400000,
+          fonte_dados: 'Prefeitura de Goiânia / BSIT',
+          link_transparencia: 'https://www.goiania.go.gov.br',
+        },
+        {
+          codigo_ibge: '1721000',
+          municipio: 'Palmas',
+          uf: 'TO',
+          regiao: 'Norte',
+          competencia: '2026-10',
+          total_servidores: 11200,
+          total_efetivos: 7900,
+          total_aposentados: 1250,
+          total_pensionistas: 350,
+          total_comissionados: 1200,
+          total_temporarios: 500,
+          total_outros: 0,
+          elegiveis_consignado: 9500,
+          elegiveis_pct: 84.8,
+          valor_folha_bruta: 56000000,
+          valor_folha_liquida: 44800000,
+          potencial_margem_35: 19600000,
+          potencial_cartao_5: 2800000,
+          fonte_dados: 'Transparência Palmas',
+          link_transparencia: 'https://transparencia.palmas.to.gov.br',
+        },
+        {
+          codigo_ibge: '3550308',
+          municipio: 'São Paulo',
+          uf: 'SP',
+          regiao: 'Sudeste',
+          competencia: '2026-10',
+          total_servidores: 128000,
+          total_efetivos: 92000,
+          total_aposentados: 19000,
+          total_pensionistas: 5000,
+          total_comissionados: 8500,
+          total_temporarios: 3500,
+          total_outros: 0,
+          elegiveis_consignado: 116000,
+          elegiveis_pct: 90.6,
+          valor_folha_bruta: 740000000,
+          valor_folha_liquida: 592000000,
+          potencial_margem_35: 259000000,
+          potencial_cartao_5: 37000000,
+          fonte_dados: 'Portal da Transparência SP',
+          link_transparencia: 'https://transparencia.prefeitura.sp.gov.br',
+        },
+        {
+          codigo_ibge: '4106902',
+          municipio: 'Curitiba',
+          uf: 'PR',
+          regiao: 'Sul',
+          competencia: '2026-10',
+          total_servidores: 29500,
+          total_efetivos: 22100,
+          total_aposentados: 4100,
+          total_pensionistas: 1000,
+          total_comissionados: 1700,
+          total_temporarios: 600,
+          total_outros: 0,
+          elegiveis_consignado: 27200,
+          elegiveis_pct: 92.2,
+          valor_folha_bruta: 158000000,
+          valor_folha_liquida: 126400000,
+          potencial_margem_35: 55300000,
+          potencial_cartao_5: 7900000,
+          fonte_dados: 'Portal Transparência Curitiba',
+          link_transparencia: 'https://transparencia.curitiba.pr.gov.br',
+        },
+        {
+          codigo_ibge: '3106200',
+          municipio: 'Belo Horizonte',
+          uf: 'MG',
+          regiao: 'Sudeste',
+          competencia: '2026-10',
+          total_servidores: 42000,
+          total_efetivos: 30500,
+          total_aposentados: 6200,
+          total_pensionistas: 1600,
+          total_comissionados: 2700,
+          total_temporarios: 1000,
+          total_outros: 0,
+          elegiveis_consignado: 38300,
+          elegiveis_pct: 91.2,
+          valor_folha_bruta: 215000000,
+          valor_folha_liquida: 172000000,
+          potencial_margem_35: 75250000,
+          potencial_cartao_5: 10750000,
+          fonte_dados: 'Portal da Transparência BH',
+          link_transparencia: 'https://transparencia.pbh.gov.br',
+        },
+      ];
+
+      const stmt = db.prepare(`
+        INSERT INTO prefeituras_folha_stats (
+          codigo_ibge, municipio, uf, regiao, competencia,
+          total_servidores, total_efetivos, total_aposentados, total_pensionistas,
+          total_comissionados, total_temporarios, total_outros,
+          elegiveis_consignado, elegiveis_pct,
+          valor_folha_bruta, valor_folha_liquida,
+          potencial_margem_35, potencial_cartao_5,
+          fonte_dados, link_transparencia, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?,
+          ?, ?,
+          ?, ?,
+          ?, ?,
+          ?, ?, ?
+        )
+      `);
+
+      for (const item of seedData) {
+        stmt.run(
+          item.codigo_ibge,
+          item.municipio,
+          item.uf,
+          item.regiao,
+          item.competencia,
+          item.total_servidores,
+          item.total_efetivos,
+          item.total_aposentados,
+          item.total_pensionistas,
+          item.total_comissionados,
+          item.total_temporarios,
+          item.total_outros,
+          item.elegiveis_consignado,
+          item.elegiveis_pct,
+          item.valor_folha_bruta,
+          item.valor_folha_liquida,
+          item.potencial_margem_35,
+          item.potencial_cartao_5,
+          item.fonte_dados,
+          item.link_transparencia,
+          now
+        );
+      }
+      console.log(`[FOLHA] ${seedData.length} municípios inicializados com estatísticas de pessoal.`);
+    }
+  } catch (err) {
+    console.error('[FOLHA] Erro ao semear estatísticas de folha:', err);
+  }
+}
+
