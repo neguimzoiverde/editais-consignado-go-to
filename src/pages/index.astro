@@ -19,7 +19,7 @@ const lastSync = getLastSync();
 <Layout title="Monitor de Editais de Consignado — Brasil (27 UFs)">
   <Header lastSyncTime={lastSync?.timestamp} />
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
     <!-- Top KPI Cards -->
     <MetricCards stats={stats} />
 
@@ -185,46 +185,46 @@ const lastSync = getLastSync();
       <!-- Tabela de Resultados -->
       <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl">
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[1240px] text-left border-collapse text-xs">
+          <table class="w-full min-w-[1180px] text-left border-collapse text-xs">
             <thead>
               <tr class="bg-zinc-950/80 border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider text-[11px]">
-                <th class="py-3.5 px-4 w-44 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="municipio" title="Clique para ordenar por Município/UF">
+                <th class="py-3.5 px-4 w-36 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="municipio" title="Clique para ordenar por Município/UF">
                   <div class="flex items-center gap-1.5">
                     <span>Município / UF</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="municipio"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-40 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="numero_edital" title="Clique para ordenar por Edital / Ano">
+                <th class="py-3.5 px-4 w-36 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="numero_edital" title="Clique para ordenar por Edital / Ano">
                   <div class="flex items-center gap-1.5">
                     <span>Edital / Ano</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="numero_edital"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 min-w-[260px] whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="objeto" title="Clique para ordenar por Objeto">
+                <th class="py-3.5 px-4 min-w-[240px] whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="objeto" title="Clique para ordenar por Objeto">
                   <div class="flex items-center gap-1.5">
                     <span>Objeto Identificado</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="objeto"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-3 w-24 whitespace-nowrap text-center">
+                <th class="py-3.5 px-3 w-20 whitespace-nowrap text-center">
                   <span>Empréstimo</span>
                 </th>
-                <th class="py-3.5 px-3 w-32 whitespace-nowrap text-center">
+                <th class="py-3.5 px-3 w-28 whitespace-nowrap text-center">
                   <span>Cartão</span>
                 </th>
-                <th class="py-3.5 px-4 w-36 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="prazo_credenciamento" title="Clique para ordenar por Prazo de Credenciamento">
+                <th class="py-3.5 px-4 w-32 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="prazo_credenciamento" title="Clique para ordenar por Prazo de Credenciamento">
                   <div class="flex items-center justify-center gap-1.5">
                     <span>Prazo Credenciamento</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="prazo_credenciamento"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-28 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="situacao" title="Clique para ordenar por Status">
+                <th class="py-3.5 px-4 w-24 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="situacao" title="Clique para ordenar por Status">
                   <div class="flex items-center justify-center gap-1.5">
                     <span>Status</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="situacao"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-72 whitespace-nowrap text-right">Links do Processo (Prioridade)</th>
+                <th class="py-3.5 px-4 w-64 whitespace-nowrap text-right">Links do Processo (Prioridade)</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-zinc-800/60 text-zinc-300">
