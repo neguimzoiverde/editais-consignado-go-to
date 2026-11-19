@@ -185,46 +185,46 @@ const lastSync = getLastSync();
       <!-- Tabela de Resultados -->
       <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs">
+          <table class="w-full min-w-[1240px] text-left border-collapse text-xs">
             <thead>
               <tr class="bg-zinc-950/80 border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider text-[11px]">
-                <th class="py-3.5 px-4 w-44 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="municipio" title="Clique para ordenar por Município/UF">
+                <th class="py-3.5 px-4 w-44 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="municipio" title="Clique para ordenar por Município/UF">
                   <div class="flex items-center gap-1.5">
                     <span>Município / UF</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="municipio"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-44 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="numero_edital" title="Clique para ordenar por Edital / Ano">
+                <th class="py-3.5 px-4 w-40 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="numero_edital" title="Clique para ordenar por Edital / Ano">
                   <div class="flex items-center gap-1.5">
                     <span>Edital / Ano</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="numero_edital"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="objeto" title="Clique para ordenar por Objeto">
+                <th class="py-3.5 px-4 min-w-[260px] whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition" data-sort="objeto" title="Clique para ordenar por Objeto">
                   <div class="flex items-center gap-1.5">
                     <span>Objeto Identificado</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="objeto"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-3 w-24 text-center">
+                <th class="py-3.5 px-3 w-24 whitespace-nowrap text-center">
                   <span>Empréstimo</span>
                 </th>
-                <th class="py-3.5 px-3 w-32 text-center">
+                <th class="py-3.5 px-3 w-32 whitespace-nowrap text-center">
                   <span>Cartão</span>
                 </th>
-                <th class="py-3.5 px-4 w-36 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="prazo_credenciamento" title="Clique para ordenar por Prazo de Credenciamento">
+                <th class="py-3.5 px-4 w-36 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="prazo_credenciamento" title="Clique para ordenar por Prazo de Credenciamento">
                   <div class="flex items-center justify-center gap-1.5">
                     <span>Prazo Credenciamento</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="prazo_credenciamento"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-28 cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="situacao" title="Clique para ordenar por Status">
+                <th class="py-3.5 px-4 w-28 whitespace-nowrap cursor-pointer select-none group/th hover:bg-zinc-800/40 hover:text-zinc-200 transition text-center" data-sort="situacao" title="Clique para ordenar por Status">
                   <div class="flex items-center justify-center gap-1.5">
                     <span>Status</span>
                     <span class="sort-icon inline-flex text-zinc-600 group-hover/th:text-zinc-400" data-sort-icon="situacao"></span>
                   </div>
                 </th>
-                <th class="py-3.5 px-4 w-80 text-right">Links do Processo (Prioridade) & Ações</th>
+                <th class="py-3.5 px-4 w-72 whitespace-nowrap text-right">Links do Processo (Prioridade)</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-zinc-800/60 text-zinc-300">
@@ -563,128 +563,118 @@ const lastSync = getLastSync();
 
         return `
           <tr class="hover:bg-zinc-800/40 transition group">
-            <td class="py-3 px-4 font-medium text-white">
+            <td class="py-3 px-4 font-medium text-white whitespace-nowrap align-middle">
               <div class="flex items-center gap-1.5">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${ufColor}">
                   ${item.uf}
                 </span>
-                <span class="truncate" title="${item.municipio}">${item.municipio}</span>
+                <span class="truncate max-w-[130px]" title="${item.municipio}">${item.municipio}</span>
               </div>
             </td>
-            <td class="py-3 px-4 font-mono text-zinc-300">
-              <span class="truncate block max-w-[150px] text-[11px] font-semibold">${item.numero_edital || 'não informado'} ${item.ano ? `(${item.ano})` : ''}</span>
+            <td class="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap align-middle">
+              <span class="truncate block max-w-[140px] text-[11px] font-semibold">${item.numero_edital || 'não informado'} ${item.ano ? `(${item.ano})` : ''}</span>
               ${originBadge}
             </td>
-            <td class="py-3 px-4 text-zinc-400">
+            <td class="py-3 px-4 text-zinc-400 align-middle min-w-[260px] max-w-sm">
               <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
                 ${item.objeto}
               </span>
             </td>
-            <td class="py-3 px-3 text-center">
+            <td class="py-3 px-3 text-center whitespace-nowrap align-middle">
               ${empBadge}
             </td>
-            <td class="py-3 px-3 text-center">
+            <td class="py-3 px-3 text-center whitespace-nowrap align-middle">
               ${cardBadge}
             </td>
-            <td class="py-3 px-4 text-center font-mono text-[11px] text-zinc-300">
-              <span class="truncate block max-w-[140px]" title="${prazoCred}">${prazoCred}</span>
+            <td class="py-3 px-4 text-center font-mono text-[11px] text-zinc-300 whitespace-nowrap align-middle">
+              <span class="truncate block max-w-[130px]" title="${prazoCred}">${prazoCred}</span>
             </td>
-            <td class="py-3 px-4 text-center">
+            <td class="py-3 px-4 text-center whitespace-nowrap align-middle">
               ${getSituacaoBadge(item.situacao)}
             </td>
-            <td class="py-3 px-4 text-right">
-              <div class="flex items-center justify-end gap-1.5 flex-wrap">
+            <td class="py-3 px-4 text-right whitespace-nowrap align-middle">
+              <div class="flex flex-col items-end gap-1.5 py-0.5">
                 ${(() => {
                   const links = resolveProcessLinks(item);
-                  let html = '';
 
                   // 1º Grau: Chamamento Público (Documento Direto)
-                  if (links.chamamento) {
-                    html += `
-                      <a
+                  const chamamentoHtml = links.chamamento
+                    ? `<a
                         href="${links.chamamento}"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm cursor-pointer"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm cursor-pointer whitespace-nowrap"
                         title="1º Prioridade: Baixar Documento Direto do Chamamento"
                       >
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        <span>Doc Chamamento</span>
-                      </a>
-                    `;
-                  } else {
-                    html += `
-                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800" title="Chamamento direto não localizado">
-                        Chamamento: Não encontrado
-                      </span>
-                    `;
-                  }
+                        <span>1º Doc Chamamento</span>
+                      </a>`
+                    : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800 whitespace-nowrap" title="Chamamento direto não localizado">
+                        1º Chamamento: Não encontrado
+                      </span>`;
 
-                  // 2º Grau: Portal de Compras Públicas / Prefeitura
-                  if (links.compras) {
-                    html += `
-                      <a
+                  // 2º Grau: Portal de Compras
+                  const comprasHtml = links.compras
+                    ? `<a
                         href="${links.compras}"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 transition cursor-pointer"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 transition cursor-pointer whitespace-nowrap"
                         title="2º Prioridade: Portal de Compras Públicas / Prefeitura"
                       >
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
-                        <span>Compras</span>
-                      </a>
-                    `;
-                  } else {
-                    html += `
-                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800" title="Portal de compras não localizado">
-                        Compras: Não encontrado
-                      </span>
-                    `;
-                  }
+                        <span>2º Compras</span>
+                      </a>`
+                    : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-zinc-950/80 border border-zinc-800/80 whitespace-nowrap" title="Portal de compras não localizado">
+                        2º Compras: Não encontrado
+                      </span>`;
 
                   // 3º Grau: Edital / PNCP
-                  if (links.edital) {
-                    html += `
-                      <a
+                  const editalHtml = links.edital
+                    ? `<a
                         href="${links.edital}"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer whitespace-nowrap"
                         title="3º Prioridade: Publicação Oficial no PNCP"
                       >
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <span>PNCP</span>
-                      </a>
-                    `;
-                  } else {
-                    html += `
-                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800" title="Edital no PNCP não localizado">
-                        PNCP: Não encontrado
-                      </span>
-                    `;
-                  }
+                        <span>3º PNCP</span>
+                      </a>`
+                    : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-zinc-950/80 border border-zinc-800/80 whitespace-nowrap" title="Edital no PNCP não localizado">
+                        3º PNCP: Não encontrado
+                      </span>`;
 
-                  // Botão para abrir o Modal de 16 Colunas
-                  html += `
+                  // Botão 16 Colunas
+                  const detailHtml = `
                     <button
                       onclick="openDetail('${item.id}')"
-                      class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer ml-1"
-                      title="Ver 16 Colunas de Detalhes"
+                      class="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer ml-0.5"
+                      title="Ver Todas as 16 Colunas e Detalhes"
                     >
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     </button>
                   `;
 
-                  return html;
+                  return `
+                    <div class="flex items-center justify-end">
+                      ${chamamentoHtml}
+                    </div>
+                    <div class="flex items-center justify-end gap-1.5">
+                      ${comprasHtml}
+                      ${editalHtml}
+                      ${detailHtml}
+                    </div>
+                  `;
                 })()}
               </div>
             </td>
