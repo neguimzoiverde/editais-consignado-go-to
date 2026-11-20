@@ -633,6 +633,47 @@ const initialFolhaStats = listFolhaStats();
       };
     }
 
+    const expandedCityGroups = new Set();
+
+    window.toggleCityGroup = function(safeKey) {
+      if (expandedCityGroups.has(safeKey)) {
+        expandedCityGroups.delete(safeKey);
+      } else {
+        expandedCityGroups.add(safeKey);
+      }
+
+      const isExpanded = expandedCityGroups.has(safeKey);
+      const childRows = document.querySelectorAll(`.child-row-${safeKey}`);
+      childRows.forEach(row => {
+        if (isExpanded) {
+          row.classList.remove('hidden');
+        } else {
+          row.classList.add('hidden');
+        }
+      });
+
+      const chevrons = document.querySelectorAll(`.chevron-${safeKey}`);
+      chevrons.forEach(ch => {
+        ch.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+      });
+
+      const btnTexts = document.querySelectorAll(`.btn-text-${safeKey}`);
+      btnTexts.forEach(bt => {
+        bt.textContent = isExpanded ? 'Recolher' : `Ver ${childRows.length} Editais`;
+      });
+
+      const masterRows = document.querySelectorAll(`.master-row-${safeKey}`);
+      masterRows.forEach(mr => {
+        if (isExpanded) {
+          mr.classList.add('bg-zinc-900/90');
+          mr.classList.remove('bg-zinc-950/40');
+        } else {
+          mr.classList.remove('bg-zinc-900/90');
+          mr.classList.add('bg-zinc-950/40');
+        }
+      });
+    };
+
     function renderTable() {
       const tbody = document.getElementById('table-body');
       const emptyState = document.getElementById('empty-state');
@@ -650,38 +691,89 @@ const initialFolhaStats = listFolhaStats();
         return true;
       });
 
-      countEl.textContent = `Exibindo ${filtered.length} de ${allEditais.length} processos catalogados`;
-
       if (filtered.length === 0) {
         tbody.innerHTML = '';
         emptyState.classList.remove('hidden');
+        if (countEl) countEl.textContent = 'Exibindo 0 resultados';
         return;
       }
+      emptyState.classList.add('hidden');
 
-      // Ordenação dinâmica
-      filtered.sort((a, b) => {
+      // Agrupa editais por Cidade + UF
+      const groupMap = new Map();
+      for (const item of filtered) {
+        const mKey = `${(item.municipio || '').trim().toLowerCase()}__${(item.uf || '').trim().toLowerCase()}`;
+        if (!groupMap.has(mKey)) {
+          const safeKey = mKey.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+          groupMap.set(mKey, {
+            key: mKey,
+            safeKey: safeKey,
+            municipio: item.municipio,
+            uf: item.uf,
+            items: []
+          });
+        }
+        groupMap.get(mKey).items.push(item);
+      }
+      const groups = Array.from(groupMap.values());
+
+      const sitWeights = { 'aberto': 1, 'em andamento': 1, 'retificado': 2, 'suspenso': 3, 'encerrado': 4 };
+
+      // Ordena itens dentro de cada grupo
+      for (const g of groups) {
+        g.items.sort((a, b) => {
+          let res = 0;
+          if (currentSortColumn === 'municipio') {
+            res = (a.orgao || a.numero_edital || '').localeCompare(b.orgao || b.numero_edital || '', 'pt-BR');
+          } else if (currentSortColumn === 'numero_edital') {
+            res = (a.numero_edital || '').localeCompare(b.numero_edital || '', 'pt-BR', { numeric: true, sensitivity: 'base' });
+          } else if (currentSortColumn === 'objeto') {
+            res = (a.objeto || '').localeCompare(b.objeto || '', 'pt-BR', { sensitivity: 'base' });
+          } else if (currentSortColumn === 'prazo_credenciamento') {
+            res = parseDateValue(a.prazo_credenciamento || a.data_encerramento) - parseDateValue(b.prazo_credenciamento || b.data_encerramento);
+          } else if (currentSortColumn === 'situacao') {
+            const wA = sitWeights[a.situacao?.toLowerCase()] || 99;
+            const wB = sitWeights[b.situacao?.toLowerCase()] || 99;
+            res = wA - wB;
+          }
+          return currentSortDirection === 'desc' ? -res : res;
+        });
+      }
+
+      // Ordena os grupos pela coluna ativa
+      groups.sort((a, b) => {
         let res = 0;
         if (currentSortColumn === 'municipio') {
           res = (a.municipio || '').localeCompare(b.municipio || '', 'pt-BR', { sensitivity: 'base' });
           if (res === 0) res = (a.uf || '').localeCompare(b.uf || '', 'pt-BR');
         } else if (currentSortColumn === 'numero_edital') {
-          res = (a.numero_edital || '').localeCompare(b.numero_edital || '', 'pt-BR', { numeric: true, sensitivity: 'base' });
+          res = (a.items[0]?.numero_edital || '').localeCompare(b.items[0]?.numero_edital || '', 'pt-BR', { numeric: true, sensitivity: 'base' });
         } else if (currentSortColumn === 'objeto') {
-          res = (a.objeto || '').localeCompare(b.objeto || '', 'pt-BR', { sensitivity: 'base' });
+          res = (a.items[0]?.objeto || '').localeCompare(b.items[0]?.objeto || '', 'pt-BR', { sensitivity: 'base' });
         } else if (currentSortColumn === 'prazo_credenciamento') {
-          res = parseDateValue(a.prazo_credenciamento || a.data_encerramento) - parseDateValue(b.prazo_credenciamento || b.data_encerramento);
+          const bestA = Math.max(...a.items.map(i => parseDateValue(i.prazo_credenciamento || i.data_encerramento)));
+          const bestB = Math.max(...b.items.map(i => parseDateValue(i.prazo_credenciamento || i.data_encerramento)));
+          res = bestA - bestB;
         } else if (currentSortColumn === 'situacao') {
-          const sitWeights = { 'aberto': 1, 'em andamento': 1, 'retificado': 2, 'suspenso': 3, 'encerrado': 4 };
-          const wA = sitWeights[a.situacao?.toLowerCase()] || 99;
-          const wB = sitWeights[b.situacao?.toLowerCase()] || 99;
+          const wA = Math.min(...a.items.map(i => sitWeights[i.situacao?.toLowerCase()] || 99));
+          const wB = Math.min(...b.items.map(i => sitWeights[i.situacao?.toLowerCase()] || 99));
           res = wA - wB;
         }
         return currentSortDirection === 'desc' ? -res : res;
       });
 
-      emptyState.classList.add('hidden');
-      tbody.innerHTML = filtered.map((item) => {
-        // Cores de UF
+      // Atualiza footer com estatística de cidades e processos
+      const multiCount = groups.filter(g => g.items.length > 1).length;
+      if (countEl) {
+        if (multiCount > 0) {
+          countEl.textContent = `Exibindo ${groups.length} municípios (${filtered.length} processos catalogados · ${multiCount} com múltiplos editais)`;
+        } else {
+          countEl.textContent = `Exibindo ${filtered.length} processos catalogados`;
+        }
+      }
+
+      // Renderiza as linhas
+      tbody.innerHTML = groups.map(group => {
         const ufColors = {
           'GO': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
           'TO': 'bg-teal-500/10 text-teal-400 border-teal-500/20',
@@ -691,38 +783,10 @@ const initialFolhaStats = listFolhaStats();
           'PR': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
           'RJ': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
         };
-        const ufColor = ufColors[item.uf] || 'bg-zinc-800 text-zinc-300 border-zinc-700';
-
-        // Badge de Origem
-        let originBadge = `<span class="inline-flex items-center text-[10px] text-zinc-400 font-sans mt-0.5">${item.origem || 'PNCP'}</span>`;
-        if (item.origem?.includes('+')) {
-          originBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-sans mt-0.5"><span class="text-cyan-400 font-bold">Portal</span><span class="text-zinc-500 font-bold">+</span><span class="text-emerald-400 font-bold">PNCP</span></span>`;
-        } else if (item.origem?.includes('Portal')) {
-          originBadge = `<span class="inline-flex items-center text-[10px] text-cyan-400 font-sans mt-0.5 font-bold">Portal da Prefeitura</span>`;
-        } else if (item.origem?.includes('LicitaçõesPrefeitura')) {
-          originBadge = `<span class="inline-flex items-center text-[10px] text-teal-400 font-sans mt-0.5 font-semibold">LicitaçõesPrefeitura</span>`;
-        }
-
-        // Empréstimo Badge
-        const empBadge = item.tem_emprestimo === 'Sim'
-          ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Sim</span>'
-          : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500">Não</span>';
-
-        // Cartão Badge
-        let cardBadge = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500">Não</span>';
-        if (item.tipo_cartao === 'Ambos') {
-          cardBadge = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/20">Crédito + Benefício</span>';
-        } else if (item.tipo_cartao === 'Cartão Benefício') {
-          cardBadge = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Benefício</span>';
-        } else if (item.tipo_cartao === 'Cartão Consignado') {
-          cardBadge = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Crédito Consignado</span>';
-        }
-
-        // Prazo de Credenciamento
-        const prazoCred = item.prazo_credenciamento || item.data_encerramento || 'Conforme edital';
+        const ufColor = ufColors[group.uf] || 'bg-zinc-800 text-zinc-300 border-zinc-700';
 
         // Inteligência de Servidores do Município
-        const folha = getFolhaForMunicipio(item.municipio, item.uf);
+        const folha = getFolhaForMunicipio(group.municipio, group.uf);
         let folhaPill = '';
         if (folha && folha.total_servidores > 0) {
           const elegCount = folha.elegiveis_consignado ?? folha.servidores_elegiveis ?? 0;
@@ -754,110 +818,282 @@ const initialFolhaStats = listFolhaStats();
           `;
         }
 
-        return `
-          <tr class="hover:bg-zinc-800/40 transition group">
+        // Função interna para renderizar links e botões de ação de um item
+        function renderRowActions(item) {
+          const links = resolveProcessLinks(item);
+
+          const chamamentoHtml = links.chamamento
+            ? `<a
+                href="${links.chamamento}"
+                target="_blank"
+                rel="noopener noreferrer"
+                onclick="event.stopPropagation()"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm cursor-pointer whitespace-nowrap"
+                title="1º Prioridade: Baixar Documento Direto do Chamamento"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>1º Doc Chamamento</span>
+              </a>`
+            : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800 whitespace-nowrap" title="Chamamento direto não localizado">
+                1º Chamamento: Não encontrado
+              </span>`;
+
+          const comprasHtml = links.compras
+            ? `<a
+                href="${links.compras}"
+                target="_blank"
+                rel="noopener noreferrer"
+                onclick="event.stopPropagation()"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 transition cursor-pointer whitespace-nowrap"
+                title="2º Prioridade: Portal de Compras Públicas / Prefeitura"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span>2º Compras</span>
+              </a>`
+            : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-zinc-950/80 border border-zinc-800/80 whitespace-nowrap" title="Portal de compras não localizado">
+                2º Compras: Não encontrado
+              </span>`;
+
+          const editalHtml = links.edital
+            ? `<a
+                href="${links.edital}"
+                target="_blank"
+                rel="noopener noreferrer"
+                onclick="event.stopPropagation()"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer whitespace-nowrap"
+                title="3º Prioridade: Publicação Oficial no PNCP"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>3º PNCP</span>
+              </a>`
+            : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-zinc-950/80 border border-zinc-800/80 whitespace-nowrap" title="Edital no PNCP não localizado">
+                3º PNCP: Não encontrado
+              </span>`;
+
+          const detailHtml = `
+            <button
+              onclick="event.stopPropagation(); openDetail('${item.id}')"
+              class="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer ml-0.5"
+              title="Ver Todas as 16 Colunas e Detalhes"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          `;
+
+          return `
+            <div class="flex items-center justify-end">
+              ${chamamentoHtml}
+            </div>
+            <div class="flex items-center justify-end gap-1.5">
+              ${comprasHtml}
+              ${editalHtml}
+              ${detailHtml}
+            </div>
+          `;
+        }
+
+        function getOriginBadge(item) {
+          if (item.origem?.includes('+')) {
+            return `<span class="inline-flex items-center gap-1 text-[10px] font-sans mt-0.5"><span class="text-cyan-400 font-bold">Portal</span><span class="text-zinc-500 font-bold">+</span><span class="text-emerald-400 font-bold">PNCP</span></span>`;
+          } else if (item.origem?.includes('Portal')) {
+            return `<span class="inline-flex items-center text-[10px] text-cyan-400 font-sans mt-0.5 font-bold">Portal da Prefeitura</span>`;
+          } else if (item.origem?.includes('LicitaçõesPrefeitura')) {
+            return `<span class="inline-flex items-center text-[10px] text-teal-400 font-sans mt-0.5 font-semibold">LicitaçõesPrefeitura</span>`;
+          }
+          return `<span class="inline-flex items-center text-[10px] text-zinc-400 font-sans mt-0.5">${item.origem || 'PNCP'}</span>`;
+        }
+
+        function getEmpBadge(item) {
+          return item.tem_emprestimo === 'Sim'
+            ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Sim</span>'
+            : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500">Não</span>';
+        }
+
+        function getCardBadge(item) {
+          if (item.tipo_cartao === 'Ambos') {
+            return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/20">Crédito + Benefício</span>';
+          } else if (item.tipo_cartao === 'Cartão Benefício') {
+            return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Benefício</span>';
+          } else if (item.tipo_cartao === 'Cartão Consignado') {
+            return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Crédito Consignado</span>';
+          }
+          return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500">Não</span>';
+        }
+
+        // CASO 1: CIDADE COM APENAS 1 EDITAL (Linha Padrão)
+        if (group.items.length === 1) {
+          const item = group.items[0];
+          const prazoCred = item.prazo_credenciamento || item.data_encerramento || 'Conforme edital';
+
+          return `
+            <tr class="hover:bg-zinc-800/40 transition group">
+              <td class="py-3 px-4 font-medium text-white whitespace-nowrap align-middle">
+                <div class="flex items-center gap-1.5">
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${ufColor}">
+                    ${item.uf}
+                  </span>
+                  <span class="truncate max-w-[130px]" title="${item.municipio}">${item.municipio}</span>
+                </div>
+                ${folhaPill}
+              </td>
+              <td class="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap align-middle">
+                <span class="truncate block max-w-[140px] text-[11px] font-semibold">${item.numero_edital || 'não informado'} ${item.ano ? `(${item.ano})` : ''}</span>
+                ${getOriginBadge(item)}
+              </td>
+              <td class="py-3 px-4 text-zinc-400 align-middle min-w-[260px] max-w-sm">
+                <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
+                  ${item.objeto}
+                </span>
+              </td>
+              <td class="py-3 px-3 text-center whitespace-nowrap align-middle">
+                ${getEmpBadge(item)}
+              </td>
+              <td class="py-3 px-3 text-center whitespace-nowrap align-middle">
+                ${getCardBadge(item)}
+              </td>
+              <td class="py-3 px-4 text-center font-mono text-[11px] text-zinc-300 whitespace-nowrap align-middle">
+                <span class="truncate block max-w-[130px]" title="${prazoCred}">${prazoCred}</span>
+              </td>
+              <td class="py-3 px-4 text-center whitespace-nowrap align-middle">
+                ${getSituacaoBadge(item.situacao)}
+              </td>
+              <td class="py-3 px-4 text-right whitespace-nowrap align-middle">
+                <div class="flex flex-col items-end gap-1.5 py-0.5">
+                  ${renderRowActions(item)}
+                </div>
+              </td>
+            </tr>
+          `;
+        }
+
+        // CASO 2: CIDADE COM MÚLTIPLOS EDITAIS (Linha Mestre Agrupadora + Sublinhas Expansíveis)
+        const isExpanded = expandedCityGroups.has(group.safeKey);
+        const distinctOrgans = Array.from(new Set(group.items.map(i => i.orgao).filter(Boolean))).slice(0, 3);
+        const hasEmp = group.items.some(i => i.tem_emprestimo === 'Sim');
+        const hasCard = group.items.some(i => i.tipo_cartao && i.tipo_cartao !== 'Não');
+        const openCount = group.items.filter(i => (i.situacao || '').toLowerCase() === 'aberto' || (i.situacao || '').toLowerCase() === 'em andamento').length;
+
+        const masterRowHtml = `
+          <tr
+            class="master-row-${group.safeKey} hover:bg-zinc-800/60 transition group cursor-pointer border-b border-zinc-800/60 ${isExpanded ? 'bg-zinc-900/90' : 'bg-zinc-950/40'}"
+            onclick="toggleCityGroup('${group.safeKey}')"
+            title="Clique para expandir ou recolher os ${group.items.length} editais de ${group.municipio}"
+          >
             <td class="py-3 px-4 font-medium text-white whitespace-nowrap align-middle">
               <div class="flex items-center gap-1.5">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${ufColor}">
-                  ${item.uf}
+                  ${group.uf}
                 </span>
-                <span class="truncate max-w-[130px]" title="${item.municipio}">${item.municipio}</span>
+                <span class="font-bold text-white max-w-[130px] truncate" title="${group.municipio}">${group.municipio}</span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <span>${group.items.length} editais</span>
+                  <svg class="w-3 h-3 chevron-${group.safeKey} transition-transform duration-200" style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
               ${folhaPill}
             </td>
             <td class="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap align-middle">
-              <span class="truncate block max-w-[140px] text-[11px] font-semibold">${item.numero_edital || 'não informado'} ${item.ano ? `(${item.ano})` : ''}</span>
-              ${originBadge}
+              <span class="truncate block max-w-[140px] text-[11px] font-semibold text-amber-300">${group.items.length} processos</span>
+              <span class="inline-flex items-center text-[10px] text-zinc-400 font-sans mt-0.5">Múltiplos órgãos</span>
             </td>
             <td class="py-3 px-4 text-zinc-400 align-middle min-w-[260px] max-w-sm">
-              <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
-                ${item.objeto}
-              </span>
+              <div class="text-xs text-zinc-200 line-clamp-2 leading-relaxed">
+                <span class="font-semibold text-amber-400">${group.items.length} editais identificados:</span> ${distinctOrgans.join(' · ')}${group.items.length > 3 ? '...' : ''}
+              </div>
+              <div class="text-[10px] text-zinc-500 mt-0.5 flex items-center gap-1">
+                <span>Clique para expandir detalhes individuais</span>
+              </div>
             </td>
             <td class="py-3 px-3 text-center whitespace-nowrap align-middle">
-              ${empBadge}
+              ${hasEmp ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Sim (${group.items.filter(i => i.tem_emprestimo === 'Sim').length})</span>` : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500">Não</span>'}
             </td>
             <td class="py-3 px-3 text-center whitespace-nowrap align-middle">
-              ${cardBadge}
+              ${hasCard ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/20">Crédito / Benefício</span>' : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500">Não</span>'}
             </td>
             <td class="py-3 px-4 text-center font-mono text-[11px] text-zinc-300 whitespace-nowrap align-middle">
-              <span class="truncate block max-w-[130px]" title="${prazoCred}">${prazoCred}</span>
+              <span class="truncate block max-w-[130px] font-semibold text-zinc-300">${group.items.length} prazos</span>
             </td>
             <td class="py-3 px-4 text-center whitespace-nowrap align-middle">
-              ${getSituacaoBadge(item.situacao)}
+              ${openCount === group.items.length
+                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${openCount} Abertos</span>`
+                : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">${openCount} de ${group.items.length} Abertos</span>`}
             </td>
             <td class="py-3 px-4 text-right whitespace-nowrap align-middle">
-              <div class="flex flex-col items-end gap-1.5 py-0.5">
-                ${(() => {
-                  const links = resolveProcessLinks(item);
+              <div class="flex items-center justify-end">
+                <button
+                  type="button"
+                  onclick="event.stopPropagation(); toggleCityGroup('${group.safeKey}')"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 shadow-sm transition cursor-pointer"
+                  title="Clique para ver os ${group.items.length} editais de ${group.municipio}"
+                >
+                  <svg class="w-3.5 h-3.5 chevron-${group.safeKey} transition-transform duration-200" style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  <span class="btn-text-${group.safeKey}">${isExpanded ? 'Recolher' : `Ver ${group.items.length} Editais`}</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
 
-                  // 1º Grau: Chamamento Público (Documento Direto)
-                  const chamamentoHtml = links.chamamento
-                    ? `<a
-                        href="${links.chamamento}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm cursor-pointer whitespace-nowrap"
-                        title="1º Prioridade: Baixar Documento Direto do Chamamento"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        <span>1º Doc Chamamento</span>
-                      </a>`
-                    : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium text-zinc-500 bg-zinc-950/80 border border-zinc-800 whitespace-nowrap" title="Chamamento direto não localizado">
-                        1º Chamamento: Não encontrado
-                      </span>`;
+        const childRowsHtml = group.items.map((item, idx) => {
+          const prazoCred = item.prazo_credenciamento || item.data_encerramento || 'Conforme edital';
 
-                  // 2º Grau: Portal de Compras
-                  const comprasHtml = links.compras
-                    ? `<a
-                        href="${links.compras}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 transition cursor-pointer whitespace-nowrap"
-                        title="2º Prioridade: Portal de Compras Públicas / Prefeitura"
-                      >
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        <span>2º Compras</span>
-                      </a>`
-                    : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-zinc-950/80 border border-zinc-800/80 whitespace-nowrap" title="Portal de compras não localizado">
-                        2º Compras: Não encontrado
-                      </span>`;
+          return `
+            <tr class="child-row-${group.safeKey} hover:bg-zinc-800/40 transition group bg-zinc-950/70 border-b border-zinc-800/40 ${isExpanded ? '' : 'hidden'}">
+              <td class="py-2.5 px-4 whitespace-nowrap align-middle">
+                <div class="flex items-center gap-2 pl-3 border-l-2 border-emerald-500/60">
+                  <span class="text-[10px] font-mono text-zinc-400 font-bold bg-zinc-800 px-1.5 py-0.5 rounded">#${idx + 1}</span>
+                  <div class="truncate max-w-[130px]">
+                    <span class="text-xs text-zinc-200 font-semibold block truncate" title="${item.orgao || item.municipio}">${item.orgao || item.municipio}</span>
+                    <span class="text-[10px] text-zinc-500 font-mono">${item.uf}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="py-2.5 px-4 font-mono text-zinc-300 whitespace-nowrap align-middle">
+                <span class="truncate block max-w-[140px] text-[11px] font-semibold">${item.numero_edital || 'não informado'} ${item.ano ? `(${item.ano})` : ''}</span>
+                ${getOriginBadge(item)}
+              </td>
+              <td class="py-2.5 px-4 text-zinc-400 align-middle min-w-[260px] max-w-sm">
+                <span class="line-clamp-2 leading-relaxed text-xs" title="${item.objeto}">
+                  ${item.objeto}
+                </span>
+              </td>
+              <td class="py-2.5 px-3 text-center whitespace-nowrap align-middle">
+                ${getEmpBadge(item)}
+              </td>
+              <td class="py-2.5 px-3 text-center whitespace-nowrap align-middle">
+                ${getCardBadge(item)}
+              </td>
+              <td class="py-2.5 px-4 text-center font-mono text-[11px] text-zinc-300 whitespace-nowrap align-middle">
+                <span class="truncate block max-w-[130px]" title="${prazoCred}">${prazoCred}</span>
+              </td>
+              <td class="py-2.5 px-4 text-center whitespace-nowrap align-middle">
+                ${getSituacaoBadge(item.situacao)}
+              </td>
+              <td class="py-2.5 px-4 text-right whitespace-nowrap align-middle">
+                <div class="flex flex-col items-end gap-1.5 py-0.5">
+                  ${renderRowActions(item)}
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
 
-                  // 3º Grau: Edital / PNCP
-                  const editalHtml = links.edital
-                    ? `<a
-                        href="${links.edital}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer whitespace-nowrap"
-                        title="3º Prioridade: Publicação Oficial no PNCP"
-                      >
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>3º PNCP</span>
-                      </a>`
-                    : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] text-zinc-500 bg-zinc-950/80 border border-zinc-800/80 whitespace-nowrap" title="Edital no PNCP não localizado">
-                        3º PNCP: Não encontrado
-                      </span>`;
-
-                  // Botão 16 Colunas
-                  const detailHtml = `
-                    <button
-                      onclick="openDetail('${item.id}')"
-                      class="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer ml-0.5"
-                      title="Ver Todas as 16 Colunas e Detalhes"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
-                  `;
+        return masterRowHtml + childRowsHtml;
+      }).join('');
+    }
 
                   return `
                     <div class="flex items-center justify-end">
